@@ -1,7 +1,6 @@
 from os import environ as env
 from dotenv import load_dotenv, find_dotenv
 from flask import Flask, request, jsonify
-import logging
 from authlib.integrations.flask_oauth2 import ResourceProtector, current_token
 from validator import Auth0JWTBearerTokenValidator
 from create_container import create_container_and_generate_sas
@@ -17,8 +16,7 @@ validator = Auth0JWTBearerTokenValidator(env.get("AUTH0_DOMAIN"), env.get("AUTH0
 require_auth.register_token_validator(validator)
 
 APP = Flask(__name__)
-APP.debug = True
-APP.logger.setLevel(logging.DEBUG)
+# APP.debug = True
 
 # access tokens with an Auth0 API audience, excluding the /userinfo endpoint, cannot have private, non-namespaced custom claims
 # https://auth0.com/docs/secure/tokens/json-web-tokens/json-web-token-claims 
@@ -83,4 +81,4 @@ def sasUrl():
 
 
 if __name__ == "__main__":
-    APP.run(host="0.0.0.0", port=env.get("PORT", 3010))
+    APP.run()

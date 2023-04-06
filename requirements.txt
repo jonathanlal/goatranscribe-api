@@ -4,3 +4,4 @@ python-jose
 flask-cors
 six
 azure-storage-blob
+authlib
