@@ -1,61 +1,86 @@
-from azure.storage.blob import BlobServiceClient, BlobClient, ContainerClient
-from azure.core.exceptions import ResourceNotFoundError
+from os import environ as env
+from dotenv import load_dotenv, find_dotenv
 from flask import Flask, request, jsonify
-from dotenv import load_dotenv
-import os
-from flask_cors import CORS
+import logging
+from authlib.integrations.flask_oauth2 import ResourceProtector, current_token
+from validator import Auth0JWTBearerTokenValidator
+from create_container import create_container_and_generate_sas
+from azure.storage.blob import BlobServiceClient, ContainerSasPermissions, generate_container_sas
 
-app = Flask(__name__)
-CORS(app)  # Enable CORS
-load_dotenv()
 
-def check_and_create_container(blob_service_client, container_name):
-    container_client = blob_service_client.get_container_client(container_name)
+ENV_FILE = find_dotenv()
+if ENV_FILE:
+    load_dotenv(ENV_FILE)
 
-    try:
-        container_client.get_container_properties()
-        return True
-    except ResourceNotFoundError:
-        container_client.create_container()
-        return False
+require_auth = ResourceProtector()
+validator = Auth0JWTBearerTokenValidator(env.get("AUTH0_DOMAIN"), env.get("AUTH0_IDENTIFIER"))
+require_auth.register_token_validator(validator)
 
-def upload_file_to_azure_blob(account_url, account_key, container_name, file):
-    # Create a BlobServiceClient object
-    blob_service_client = BlobServiceClient(account_url=account_url, credential=account_key)
+APP = Flask(__name__)
+APP.debug = True
+APP.logger.setLevel(logging.DEBUG)
 
-    # Check and create container if it doesn't exist
-    check_and_create_container(blob_service_client, container_name)
+# access tokens with an Auth0 API audience, excluding the /userinfo endpoint, cannot have private, non-namespaced custom claims
+# https://auth0.com/docs/secure/tokens/json-web-tokens/json-web-token-claims 
+def getUserID(token):
+    sub_value = token.get('sub', '')
+    return sub_value.replace('|', '')
 
-    # Get the container client
-    container_client = blob_service_client.get_container_client(container_name)
+@APP.route('/')
+def index():
+    return jsonify('goatranscribe api')
 
-    # Get the blob client
-    blob_name = file.filename
-    blob_client = container_client.get_blob_client(blob_name)
+@APP.route("/api/public", methods=["POST"])
+def public():
+    """No access token required."""
+    response = (
+        "Hello from a public endpoint! You don't need to be"
+        " authenticated to see this."
+    )
+    return jsonify({"message": response})
 
-    # Upload the file
-    blob_client.upload_blob(file)
+@APP.route("/api/private", methods=["POST"])
+@require_auth(None)
+def private():
+    """A valid access token is required."""
+    response = (
+        "Hello from a private endpoint! You need to be"
+        " authenticated to see this."
+    )
+    return jsonify(message=response)
 
-    # Return the uploaded file URL
-    return blob_client.url
+@APP.route("/api/private-scoped", methods=["POST"])
+@require_auth("read:messages")
+def private_scoped():
+    """A valid access token and scope are required."""
+    response = (
+        "Hello from a private endpoint! You need to be"
+        " authenticated and have a scope of read:messages to see"
+        " this."
+    )
+    return jsonify(message=response)
 
-@app.route('/upload', methods=['POST'])
-def upload_file():
-    # Get the file & container_name from the request
-    file = request.files.get('file')
-    container_name = request.form.get('container_name')
+#checks if the container exists and creates it if necessary. Then, generate a SAS token for the container and return it to the client.
+@APP.route("/api/sasUrl", methods=["POST"])
+@require_auth('openid')
+def sasUrl():
 
-    # Set your Azure Storage account URL, key, and container name
-    account_url = os.getenv("AZURE_STORAGE_ACCOUNT_URL")
-    account_key = os.getenv("AZURE_STORAGE_KEY")
-    # container_name = "test"
+    # Call the create_container_and_generate_sas function to ensure the container exists and get the SAS token
+    sas_token = create_container_and_generate_sas(getUserID(current_token))
 
-    # Upload the file to Azure Blob Storage
-    file_url = upload_file_to_azure_blob(account_url, account_key, container_name, file)
+    # Generate the SAS URL for the container
+    connection_string = env.get("AZURE_STORAGE_CONNECTION_STRING")
+    blob_service_client = BlobServiceClient.from_connection_string(connection_string)
+    account_url = blob_service_client.primary_endpoint
+    sas_url = f"{account_url}?{sas_token}"
 
-    # Return a JSON response with the uploaded file URL
-    return jsonify({"file_url": file_url})
-    # return jsonify({"file_url": "wtf"})
+    # Return the SAS URL to the client
+    response = {
+        "message": "Generated SAS URL for container.",
+        "sasUrl": sas_url
+    }
+    return jsonify(response)
 
-if __name__ == '__main__':
-    app.run()
+
+if __name__ == "__main__":
+    APP.run(host="0.0.0.0", port=env.get("PORT", 3010))
