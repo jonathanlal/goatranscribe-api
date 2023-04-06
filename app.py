@@ -15,8 +15,8 @@ require_auth = ResourceProtector()
 validator = Auth0JWTBearerTokenValidator(env.get("AUTH0_DOMAIN"), env.get("AUTH0_IDENTIFIER"))
 require_auth.register_token_validator(validator)
 
-APP = Flask(__name__)
-# APP.debug = True
+app = Flask(__name__)
+# app.debug = True
 
 # access tokens with an Auth0 API audience, excluding the /userinfo endpoint, cannot have private, non-namespaced custom claims
 # https://auth0.com/docs/secure/tokens/json-web-tokens/json-web-token-claims 
@@ -24,11 +24,11 @@ def getUserID(token):
     sub_value = token.get('sub', '')
     return sub_value.replace('|', '')
 
-@APP.route('/')
+@app.route('/')
 def index():
     return jsonify('goatranscribe api')
 
-@APP.route("/api/public", methods=["POST"])
+@app.route("/api/public", methods=["POST"])
 def public():
     """No access token required."""
     response = (
@@ -37,7 +37,7 @@ def public():
     )
     return jsonify({"message": response})
 
-@APP.route("/api/private", methods=["POST"])
+@app.route("/api/private", methods=["POST"])
 @require_auth(None)
 def private():
     """A valid access token is required."""
@@ -47,7 +47,7 @@ def private():
     )
     return jsonify(message=response)
 
-@APP.route("/api/private-scoped", methods=["POST"])
+@app.route("/api/private-scoped", methods=["POST"])
 @require_auth("read:messages")
 def private_scoped():
     """A valid access token and scope are required."""
@@ -59,7 +59,7 @@ def private_scoped():
     return jsonify(message=response)
 
 #checks if the container exists and creates it if necessary. Then, generate a SAS token for the container and return it to the client.
-@APP.route("/api/sasUrl", methods=["POST"])
+@app.route("/api/sasUrl", methods=["POST"])
 @require_auth('openid')
 def sasUrl():
 
@@ -81,4 +81,4 @@ def sasUrl():
 
 
 if __name__ == "__main__":
-    APP.run()
+    app.run()
