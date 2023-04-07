@@ -1,7 +1,7 @@
 from os import environ as env
 from dotenv import load_dotenv, find_dotenv
 from datetime import datetime, timedelta
-from azure.storage.blob import BlobServiceClient, ContainerSasPermissions, generate_container_sas
+from azure.storage.blob import BlobServiceClient, ContainerSasPermissions, generate_container_sas, generate_blob_sas, BlobSasPermissions
 
 
 ENV_FILE = find_dotenv()
@@ -29,3 +29,14 @@ def create_container_and_generate_sas(container_name):
     )
 
     return sas_token
+
+def get_blob_sas(container_name, blob_name):
+    connection_string = env.get("AZURE_STORAGE_CONNECTION_STRING")
+    blob_service_client = BlobServiceClient.from_connection_string(connection_string)
+    sas_blob = generate_blob_sas(account_name=blob_service_client.account_name, 
+                                container_name=container_name,
+                                blob_name=blob_name,
+                                account_key=env.get("AZURE_STORAGE_KEY"),
+                                permission=BlobSasPermissions(read=True),
+                                expiry=datetime.utcnow() + timedelta(hours=1))
+    return sas_blob

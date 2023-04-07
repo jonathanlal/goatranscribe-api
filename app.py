@@ -3,7 +3,7 @@ from dotenv import load_dotenv, find_dotenv
 from flask import Flask, request, jsonify
 from authlib.integrations.flask_oauth2 import ResourceProtector, current_token
 from validator import Auth0JWTBearerTokenValidator
-from create_container import create_container_and_generate_sas
+from create_container import create_container_and_generate_sas, get_blob_sas
 from azure.storage.blob import BlobServiceClient, ContainerSasPermissions, generate_container_sas
 
 
@@ -79,6 +79,22 @@ def sasUrl():
     }
     return jsonify(response)
 
+
+#returns CDN url with SAS token for a specific file
+@app.route("/api/sasToken", methods=["POST"])
+@require_auth(None)
+def sasToken():
+    blob_name = request.json['fileName']
+    print(blob_name)
+    container_name = getUserID(current_token)
+    sas_token = get_blob_sas(container_name, blob_name)
+    #change url to custom domain url after fixing https
+    url = 'https://goatranscribe.azureedge.net/'+container_name+'/'+blob_name+'?'+sas_token
+    response = {
+        "message": "Generated SAS URL for File.",
+        "sasUrl": url
+    }
+    return jsonify(response)
 
 if __name__ == "__main__":
     app.run()
