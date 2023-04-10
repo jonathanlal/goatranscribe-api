@@ -5,3 +5,12 @@ flask-cors
 six
 azure-storage-blob
 authlib
+openai
+pydub
+ffmpeg
+srt
+flask-socketio
+datetime
+math
+firebase-admin
+nltk
