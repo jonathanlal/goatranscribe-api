@@ -2,3 +2,4 @@ venv
 .env
 __pycache__
 goatranscribe-firebase-adminsdk-l40rp-22802c46c5.json
+*.code-workspace
