@@ -1,3 +1,4 @@
+import math
 import os
 import json
 import firebase_admin
@@ -78,6 +79,7 @@ def store_audio_file_info(user_id, entry_key, blob):
     creation_date = blob_properties.creation_time.strftime("%Y-%m-%d %H:%M:%S")
     file_name = blob_properties.metadata['fileName']
     file_extension = blob_properties.metadata['fileExtension']
+    duration = blob_properties.metadata['duration']
     file_url = f"https://goatranscribe.blob.core.windows.net/{user_id}/audio/{entry_key}"
 
     ref = db.reference(f'users/{user_id}/transcripts/-{entry_key}')
@@ -88,10 +90,82 @@ def store_audio_file_info(user_id, entry_key, blob):
             "file_type": file_type,
             "file_size": file_size,
             "file_extension": file_extension,
-            "creation_date": creation_date
+            "creation_date": creation_date,
+            "duration": duration,
+            "status": "pending"
         }
     }
     ref.update(info)
+
+def store_payment_intent(user_id, payment_id):
+    ref = db.reference(f'users/{user_id}/payments')
+    new_payment = ref.push()
+    new_payment.set({
+        "payment_id": payment_id
+    })
+
+def check_payment_intent_exists(user_id, payment_id):
+    ref = db.reference(f'users/{user_id}/payments')
+    payments = ref.get()
+
+    if payments:
+        for payment_key, payment_data in payments.items():
+            if payment_data.get('payment_id') == payment_id:
+                return True
+    return False
+
+COST_PER_MINUTE = 0.017  # dollars per minute
+COST_PER_SECOND = COST_PER_MINUTE / 60  # dollars per second
+
+
+def get_entry_by_id(user_id, entry_id):
+    ref = db.reference(f'users/{user_id}/transcripts')
+    entry = ref.child(entry_id).get()
+
+    if not isinstance(entry, dict):
+        print(f"Warning: entry_data for key {entry_id} is not a dictionary.")
+        return None
+    
+    return entry
+
+
+
+def get_uploads(user_id):
+    ref = db.reference(f'users/{user_id}/transcripts')
+    transcripts = ref.get()
+
+    incomplete_uploads = []
+    if transcripts:
+        for entry_key, entry_data in transcripts.items():
+            if not isinstance(entry_data, dict):
+                print(f"Warning: entry_data for key {entry_key} is not a dictionary.")
+                continue
+            if 'transcript' not in entry_data:
+                audio = entry_data.get('audio')
+                if audio is not None:
+                    duration = float(audio.get("duration", 0))
+                    #remove this if after testing/developing
+                    if duration > 0:
+                        estimated_cost = duration * COST_PER_SECOND
+                        rounded_estimated_cost = round(math.ceil(estimated_cost * 100) / 100, 2)
+                    else:
+                        rounded_estimated_cost = 0
+                    
+                    incomplete_uploads.append({
+                        "entry_id": entry_key.replace('-', ''),
+                        "creation_date": audio["creation_date"],
+                        "file_type": audio["file_type"],
+                        "file_size": audio["file_size"],
+                        "file_name": audio["file_name"],
+                        "file_extension": audio["file_extension"],
+                        "file_url": audio["file_url"],
+                        "duration": duration,
+                        "cost": rounded_estimated_cost,
+                        "status": audio["status"] 
+                    })
+                else:
+                    continue
+    return incomplete_uploads
 
 # def store_file_info(user_id, audio_info=None, transcript_info=None, subtitles_info=None):
 #     ref = db.reference(f'users/{user_id}/transcripts')

@@ -6,7 +6,7 @@ import os
 from flask_cors import CORS
 
 app = Flask(__name__)
-CORS(app)  # Enable CORS
+CORS(app, supports_credentials=True, origins=['http://localhost:3000'])  # Replace with the client app's origin
 load_dotenv()
 
 def check_and_create_container(blob_service_client, container_name):
