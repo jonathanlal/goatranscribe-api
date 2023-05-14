@@ -6,7 +6,7 @@ from os import environ as env
 
 
 def getBlobUrl(container_name, blob_name):
-    sas_token = get_blob_sas(container_name, blob_name)
+    sas_token = get_blob_sas(blob_name)
     return 'https://goatranscribe.azureedge.net/'+container_name+'/'+blob_name+'?'+sas_token
 
 def get_container_client():
