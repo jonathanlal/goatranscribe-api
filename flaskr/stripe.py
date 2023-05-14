@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify
 import stripe
 
-from firebase import check_payment_intent_exists, store_payment_intent
+from flaskr.firebase import check_payment_intent_exists, store_payment_intent
 from .auth import getUserAppMetadata, require_auth, getUserID
 import os
 from dotenv import load_dotenv, find_dotenv

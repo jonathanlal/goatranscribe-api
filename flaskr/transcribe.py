@@ -7,8 +7,8 @@ from os import environ as env
 import os
 import srt
 from azure.storage.blob import BlobServiceClient
-from create_container import create_container_and_generate_sas, get_blob_sas
-from firebase import COST_PER_SECOND, create_entry_key, get_entry, get_entry_by_id, get_uploads, store_audio_file_info, store_transcript_info, store_subtitles_info
+from flaskr.create_container import create_container_and_generate_sas, get_blob_sas
+from flaskr.firebase import COST_PER_SECOND, create_entry_key, get_entry, get_entry_by_id, get_uploads, store_audio_file_info, store_transcript_info, store_subtitles_info
 from firebase_admin import db
 from flaskr.azure import download_file_from_azure, file_exists_azure, get_blob_client, getBlobUrl, upload_file_to_azure
 from pydub import AudioSegment
@@ -98,7 +98,13 @@ def getCost(file_duration):
 def transcribe():
     openai.api_key = env.get("OPENAI_API_KEY")
     entry_keys = request.json['entryKeys']
-    
+
+    authorization_header = request.headers.get('Authorization')
+    if authorization_header:
+        access_token = authorization_header.split(' ')[1]  # Assuming "Bearer <access_token>" format
+    else:
+        return jsonify({"error": "Missing access token"}), 401
+    print(access_token)
     # transcript_file_name = f"transcript/{blob_name}"
     # subtitle_file_name = f"subtitle/{blob_name}"
     # audio_file_name = f"audio/{blob_name}"
@@ -108,6 +114,7 @@ def transcribe():
     # audio_data = entry['audio']
 
     print(entry_keys)
+    return jsonify(entry_keys)
     
 
 

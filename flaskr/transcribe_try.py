@@ -4,8 +4,8 @@ from os import environ as env
 import os
 import srt
 from azure.storage.blob import BlobServiceClient
-from create_container import create_container_and_generate_sas
-from firebase import create_entry_key
+from flaskr.create_container import create_container_and_generate_sas
+from flaskr.firebase import create_entry_key
 from firebase_admin import db
 from flaskr.azure import download_file_from_azure, get_blob_client, upload_file_to_azure
 import tempfile

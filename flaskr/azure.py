@@ -1,6 +1,6 @@
 from authlib.integrations.flask_oauth2 import current_token
 from azure.storage.blob import BlobServiceClient
-from create_container import get_blob_sas
+from flaskr.create_container import get_blob_sas
 from os import environ as env
 
 # access tokens with an Auth0 API audience, excluding the /userinfo endpoint, cannot have private, non-namespaced custom claims

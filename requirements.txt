@@ -11,9 +11,7 @@ ffmpeg
 srt
 flask-socketio
 datetime
-math
 firebase-admin
 nltk
 stripe>=5.0.0
 auth0-python
-azure-functions

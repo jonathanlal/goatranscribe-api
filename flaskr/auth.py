@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
 from authlib.integrations.flask_oauth2 import ResourceProtector
-from validator import Auth0JWTBearerTokenValidator
+from flaskr.validator import Auth0JWTBearerTokenValidator
 from os import environ as env
 from auth0.authentication import GetToken
 from auth0.management import Auth0
