@@ -5,6 +5,9 @@ import firebase_admin
 from dotenv import load_dotenv, find_dotenv
 from firebase_admin import credentials
 from firebase_admin import db
+from authlib.integrations.flask_oauth2 import current_token
+from flaskr.auth import getUserID
+from flaskr.azure import get_blob_client
 
 ENV_FILE = find_dotenv()
 if ENV_FILE:
@@ -28,74 +31,38 @@ def get_entry(user_id, entry_key):
     ref = db.reference(f'users/{user_id}/transcripts/-{entry_key}')
     return ref.get()
 
-def store_transcript_info(user_id, entry_key, blob):
+
+def store_file_info(entry_key, file_category):
+    user_id = getUserID(current_token)
+    blob = get_blob_client(f"{file_category}/{entry_key}")
     blob_properties = blob.get_blob_properties()
     metadata = blob_properties.metadata
     file_type = blob_properties.content_settings.content_type
     file_size = blob_properties.size
     creation_date = blob_properties.creation_time.strftime("%Y-%m-%d %H:%M:%S")
-    file_extension = '.txt'
-    file_url = f"https://goatranscribe.blob.core.windows.net/{user_id}/transcript/{entry_key}"
-    word_count = blob_properties.metadata['wordCount']
+    file_url = f"https://goatranscribe.blob.core.windows.net/{user_id}/{file_category}/{entry_key}"
 
     ref = db.reference(f'users/{user_id}/transcripts/-{entry_key}')
     info = {
-        "transcript": {
+        file_category: {
             "file_name": entry_key,
             "file_url": file_url,
             "file_type": file_type,
             "file_size": file_size,
-            "word_count": word_count,
-            "creation_date": creation_date
-        }
-    }
-    ref.update(info)
-
-def store_subtitles_info(user_id, entry_key, blob):
-    blob_properties = blob.get_blob_properties()
-    file_type = blob_properties.content_settings.content_type
-    file_size = blob_properties.size
-    creation_date = blob_properties.creation_time.strftime("%Y-%m-%d %H:%M:%S")
-    file_extension = '.srt'
-    file_url = f"https://goatranscribe.blob.core.windows.net/{user_id}/subtitle/{entry_key}"
-
-    ref = db.reference(f'users/{user_id}/transcripts/-{entry_key}')
-    info = {
-        "subtitles": {
-            "file_name": entry_key,
-            "file_url": file_url,
-            "file_type": file_type,
-            "file_size": file_size,
-            "creation_date": creation_date
-        }
-    }
-    ref.update(info)
-
-def store_audio_file_info(user_id, entry_key, blob):
-    blob_properties = blob.get_blob_properties()
-    metadata = blob_properties.metadata
-    file_type = blob_properties.content_settings.content_type
-    file_size = blob_properties.size
-    creation_date = blob_properties.creation_time.strftime("%Y-%m-%d %H:%M:%S")
-    file_name = blob_properties.metadata['fileName']
-    file_extension = blob_properties.metadata['fileExtension']
-    duration = blob_properties.metadata['duration']
-    file_url = f"https://goatranscribe.blob.core.windows.net/{user_id}/audio/{entry_key}"
-
-    ref = db.reference(f'users/{user_id}/transcripts/-{entry_key}')
-    info = {
-        "audio": {
-            "file_name": file_name,
-            "file_url": file_url,
-            "file_type": file_type,
-            "file_size": file_size,
-            "file_extension": file_extension,
             "creation_date": creation_date,
-            "duration": duration,
-            "status": "pending"
         }
     }
+
+    if file_category == "transcript":
+        info[file_category]["word_count"] = metadata['wordCount']
+    elif file_category == "audio":
+        info[file_category]["file_name"] = metadata['fileName']
+        info[file_category]["file_extension"] = metadata['fileExtension']
+        info[file_category]["duration"] = metadata['duration']
+        info[file_category]["status"] = "pending"
+
     ref.update(info)
+
 
 def store_payment_intent(user_id, payment_id):
     ref = db.reference(f'users/{user_id}/payments')

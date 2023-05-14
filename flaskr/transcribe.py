@@ -7,10 +7,9 @@ from os import environ as env
 import os
 import srt
 from azure.storage.blob import BlobServiceClient
-from flaskr.create_container import create_container_and_generate_sas, get_blob_sas
-from flaskr.firebase import COST_PER_SECOND, create_entry_key, get_entry, get_entry_by_id, get_uploads, store_audio_file_info, store_transcript_info, store_subtitles_info
+from flaskr.firebase import COST_PER_SECOND, create_entry_key, get_entry, get_entry_by_id, get_uploads, store_file_info
 from firebase_admin import db
-from flaskr.azure import download_file_from_azure, file_exists_azure, get_blob_client, getBlobUrl, upload_file_to_azure
+from flaskr.azure import download_file_from_azure, file_exists_azure, get_blob_client, get_container_sas, getBlobUrl, upload_file_to_azure
 from pydub import AudioSegment
 import tempfile
 import nltk
@@ -20,19 +19,10 @@ nltk.download('punkt')
 
 bp = Blueprint("transcribe", __name__)
 
-def update_transcript_file_info(entry_key):
-    user_id = getUserID(current_token)
-    blob = get_blob_client(f"transcript/{entry_key}")
-    store_transcript_info(user_id, entry_key, blob)
 
 def extract_text_from_srt(subtitles):
     text_content = ' '.join([subtitle.content for subtitle in subtitles])
     return text_content
-
-def update_subtitle_file_info(entry_key):
-    user_id = getUserID(current_token)
-    blob = get_blob_client(f"subtitle/{entry_key}")
-    store_subtitles_info(user_id, entry_key, blob)
 
 def transcribe_audio(audio_file):
     # verbose = None
@@ -192,7 +182,7 @@ def transcribe():
 
     #     os.remove(tmp_file.name)
     #     upload_file_to_azure(subtitle_file_name, subtitles)
-    #     update_subtitle_file_info(blob_name)
+    #     store_file_info(blob_name, 'subtitle')
 
 
     #     subs = list(srt.parse(subtitles))
@@ -204,7 +194,7 @@ def transcribe():
     #         'wordCount': str(word_count)
     #     }
     #     upload_file_to_azure(transcript_file_name, transcript, metadata=metadata) #upload text transcript to azure
-    #     update_transcript_file_info(blob_name)
+    #     store_file_info(blob_name, ')
     
     # return createTranscribeResponse(blob_name, subs_dicts, transcript)
 
@@ -244,17 +234,11 @@ def newEntry():
     }
     return jsonify(response)
 
-
-def update_audio_file_info(entry_key):
-    user_id = getUserID(current_token)
-    blob = get_blob_client(f"audio/{entry_key}")
-    store_audio_file_info(user_id, entry_key, blob)
-
 @bp.route("/uploadComplete", methods=["POST"])
 @require_auth(None)
 def uploadComplete():
     entry_key = request.json['entryKey']
-    update_audio_file_info(entry_key)
+    store_file_info(entry_key, "audio")
     response = {
         "message": "Audio data saved.",
     }
@@ -284,19 +268,8 @@ def sasToken():
 @bp.route("/sasUrl", methods=["POST"])
 @require_auth(None)
 def sasUrl():
-
-    # Call the create_container_and_generate_sas function to ensure the container exists and get the SAS token
-    sas_token = create_container_and_generate_sas(getUserID(current_token))
-
-    # Generate the SAS URL for the container
-    connection_string = env.get("AZURE_STORAGE_CONNECTION_STRING")
-    blob_service_client = BlobServiceClient.from_connection_string(connection_string)
-    account_url = blob_service_client.primary_endpoint
-    sas_url = f"{account_url}?{sas_token}"
-
+    sas_url = get_container_sas()
     entry_key = create_entry_key(getUserID(current_token))
-    
-    # Return the SAS URL to the client
     response = {
         "message": "Generated SAS URL & entry key.",
         "sasUrl": sas_url,

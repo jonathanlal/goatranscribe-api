@@ -12,6 +12,8 @@ require_auth = ResourceProtector()
 validator = Auth0JWTBearerTokenValidator(env.get("AUTH0_DOMAIN"), env.get("AUTH0_IDENTIFIER"))
 require_auth.register_token_validator(validator)
 
+# access tokens with an Auth0 API audience, excluding the /userinfo endpoint, cannot have private, non-namespaced custom claims
+# https://auth0.com/docs/secure/tokens/json-web-tokens/json-web-token-claims 
 def getUserID(token):
     if not token:
         return 'try'
@@ -43,11 +45,6 @@ def refresh_token():
         return jsonify(token)
     except Exception as e:
         return jsonify({"error": str(e)}), 400
-
-# def getCurrentUser():
-#     user = get_current_user()
-#     print(user)
-#     # return user
 
 # def get_user_metadata():
 #     # Get the user_id from the current_token

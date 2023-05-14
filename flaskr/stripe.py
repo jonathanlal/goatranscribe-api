@@ -21,7 +21,7 @@ stripe.api_key = os.environ['STRIPE_API_TEST']
 def add_wallet_credit():
     amount_in_dollars = request.json['amount']
     amount_in_cents = int(amount_in_dollars) * 100  
-    intent_id = request.json.get('intent_id')  # Change this line to use get()
+    intent_id = request.json.get('intent_id')
 
     stripe_customer_id = getUserAppMetadata()['stripe_customer_id']
 
@@ -80,8 +80,6 @@ def validate_payment():
 def get_customer_transactions():
     stripe_customer_id = getUserAppMetadata()['stripe_customer_id']
     transactions = stripe.Charge.list(customer=stripe_customer_id)
-
-    # You can format the transactions into a more suitable format if needed
     formatted_transactions = []
     for transaction in transactions:
         formatted_transactions.append({

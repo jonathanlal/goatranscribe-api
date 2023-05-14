@@ -4,15 +4,14 @@ from os import environ as env
 import os
 import srt
 from azure.storage.blob import BlobServiceClient
-from flaskr.create_container import create_container_and_generate_sas
-from flaskr.firebase import create_entry_key
+from flaskr.firebase import create_entry_key, store_file_info
 from firebase_admin import db
-from flaskr.azure import download_file_from_azure, get_blob_client, upload_file_to_azure
+from flaskr.azure import download_file_from_azure, get_blob_client, get_container_sas, get_container_client, upload_file_to_azure
 import tempfile
 import nltk
 from nltk.tokenize import word_tokenize
 
-from flaskr.transcribe import createTranscribeResponse, extract_text_from_srt, subtitle_to_dict, transcribe_audio, update_audio_file_info, update_subtitle_file_info, update_transcript_file_info
+from flaskr.transcribe import createTranscribeResponse, extract_text_from_srt, subtitle_to_dict, transcribe_audio
 
 
 bp = Blueprint("transcribe_try", __name__, url_prefix="/try")
@@ -20,13 +19,11 @@ bp = Blueprint("transcribe_try", __name__, url_prefix="/try")
 @bp.route("/transcribe", methods=["POST"])
 def tryTranscribe():
     openai.api_key = env.get("OPENAI_API_KEY")
-    blob_name = request.json['entryKey']
+    entry_key = request.json['entryKey']
     
-    transcript_file_name = f"transcript/{blob_name}"
-    subtitle_file_name = f"subtitle/{blob_name}"
-    audio_file_name = f"audio/{blob_name}"
-
-    user_id = 'try'
+    transcript_file_name = f"transcript/{entry_key}"
+    subtitle_file_name = f"subtitle/{entry_key}"
+    audio_file_name = f"audio/{entry_key}"
 
     audio_file = download_file_from_azure(audio_file_name)
     file_extension = get_blob_client(audio_file_name).get_blob_properties().metadata['fileExtension']
@@ -39,7 +36,7 @@ def tryTranscribe():
 
     os.remove(tmp_file.name)
     upload_file_to_azure(subtitle_file_name, subtitles)
-    update_subtitle_file_info(blob_name)
+    store_file_info(entry_key, 'subtitle')
 
 
     subs = list(srt.parse(subtitles))
@@ -51,15 +48,15 @@ def tryTranscribe():
         'wordCount': str(word_count)
     }
     upload_file_to_azure(transcript_file_name, transcript, metadata=metadata) #upload text transcript to azure
-    update_transcript_file_info(blob_name)
+    store_file_info(entry_key, 'transcript')
 
         
-    return createTranscribeResponse(blob_name, subs_dicts, transcript)
+    return createTranscribeResponse(entry_key, subs_dicts, transcript)
 
 @bp.route("/uploadComplete", methods=["POST"])
 def tryUploadComplete():
     entry_key = request.json['entryKey']
-    update_audio_file_info(entry_key)
+    store_file_info(entry_key, 'audio')
     response = {
         "message": "Audio data saved.",
     }
@@ -67,16 +64,7 @@ def tryUploadComplete():
 
 @bp.route("/sasUrl", methods=["POST"])
 def trySasUrl():
-
-    # Call the create_container_and_generate_sas function to ensure the container exists and get the SAS token
-    sas_token = create_container_and_generate_sas('try')
-
-    # Generate the SAS URL for the container
-    connection_string = env.get("AZURE_STORAGE_CONNECTION_STRING")
-    blob_service_client = BlobServiceClient.from_connection_string(connection_string)
-    account_url = blob_service_client.primary_endpoint
-    sas_url = f"{account_url}?{sas_token}"
-
+    sas_url = get_container_sas()
     entry_key = create_entry_key('try')
     
     # Return the SAS URL to the client

@@ -1,28 +1,26 @@
 from authlib.integrations.flask_oauth2 import current_token
-from azure.storage.blob import BlobServiceClient
-from flaskr.create_container import get_blob_sas
+from azure.storage.blob import BlobServiceClient, ContainerSasPermissions, generate_container_sas, generate_blob_sas, BlobSasPermissions
+from flaskr.auth import getUserID
+from datetime import datetime, timedelta
 from os import environ as env
 
-# access tokens with an Auth0 API audience, excluding the /userinfo endpoint, cannot have private, non-namespaced custom claims
-# https://auth0.com/docs/secure/tokens/json-web-tokens/json-web-token-claims 
-def getUserID(token):
-    if not token:
-        return 'try'
-    sub_value = token.get('sub', '')
-    return sub_value.replace('|', '')
 
 def getBlobUrl(container_name, blob_name):
     sas_token = get_blob_sas(container_name, blob_name)
-    #change url to custom domain url after fixing https
     return 'https://goatranscribe.azureedge.net/'+container_name+'/'+blob_name+'?'+sas_token
 
 def get_container_client():
     container_name = getUserID(current_token)
     blob_service_client = BlobServiceClient.from_connection_string(env.get("AZURE_STORAGE_CONNECTION_STRING"))
-    return blob_service_client.get_container_client(container_name)
+    container_client = blob_service_client.get_container_client(container_name)
+    try:
+        container_client.create_container()
+    except:
+        pass  # Container already exists
+    return {"container_client": container_client, "blob_service_client": blob_service_client, "container_name": container_name}
 
 def get_blob_client(blob_name):
-    container_client = get_container_client()
+    container_client = get_container_client()["container_client"]
     return container_client.get_blob_client(blob_name)
 
 def upload_file_to_azure(blob_name, data, metadata=None):
@@ -36,3 +34,39 @@ def file_exists_azure(blob_name):
 def download_file_from_azure(blob_name):
     blob_client = get_blob_client(blob_name)
     return blob_client.download_blob()
+
+def upload_file_to_azure_blob(file):
+    clients = get_container_client()
+    container_client = clients["container_client"]
+    blob_client = container_client.get_blob_client(file.filename)
+    blob_client.upload_blob(file)
+    return blob_client.url
+
+def get_container_sas():
+    clients = get_container_client()
+    blob_service_client = clients["blob_service_client"]
+    container_name = clients["container_name"]
+
+    sas_token = generate_container_sas(
+        blob_service_client.account_name,
+        container_name,
+        account_key=blob_service_client.credential.account_key,
+        permission=ContainerSasPermissions(read=True, write=True, list=True),
+        expiry=datetime.utcnow() + timedelta(hours=1)
+    )
+    account_url = blob_service_client.primary_endpoint
+    sas_container = f"{account_url}?{sas_token}"
+    return sas_container
+
+def get_blob_sas(blob_name):
+    clients = get_container_client()
+    blob_service_client = clients["blob_service_client"]
+    container_name = clients["container_name"]
+    
+    sas_blob = generate_blob_sas(account_name=blob_service_client.account_name, 
+                                container_name=container_name,
+                                blob_name=blob_name,
+                                account_key=blob_service_client.credential.account_key,
+                                permission=BlobSasPermissions(read=True),
+                                expiry=datetime.utcnow() + timedelta(hours=1))
+    return sas_blob
