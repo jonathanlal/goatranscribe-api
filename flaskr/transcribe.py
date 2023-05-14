@@ -1,7 +1,9 @@
+import json
 import math
 from flask import Blueprint, request, jsonify
 from authlib.integrations.flask_oauth2 import current_token
 import openai
+import requests
 from .auth import require_auth, getUserID
 from os import environ as env
 import os
@@ -82,6 +84,20 @@ def getCost(file_duration):
         rounded_estimated_cost = 0
     return rounded_estimated_cost
 
+@bp.route("/transcribeStatus", methods=["POST"])
+@require_auth(None)
+def check_transcribe_status():
+    instance_id = request.json['instanceId']
+    # Retrieve the status of the Durable Function using the instance ID
+    # Implement the logic to fetch the status based on the instance ID
+    url = f"http://localhost:7071/runtime/webhooks/durabletask/instances/{instance_id}" # might need to add the other params to the url
+    response = requests.get(url)
+    responseJson = json.loads(response.text)
+    print(responseJson)
+    status = responseJson['runtimeStatus']
+    output = responseJson['output']
+
+    return jsonify({"status": status, "output": output})
 
 @bp.route("/transcribe", methods=["POST"])
 @require_auth(None)
@@ -94,7 +110,25 @@ def transcribe():
         access_token = authorization_header.split(' ')[1]  # Assuming "Bearer <access_token>" format
     else:
         return jsonify({"error": "Missing access token"}), 401
-    print(access_token)
+    # print(access_token)
+
+    # make post request here with access token in authorization_header and entry_keys in body
+    url = "http://localhost:7071/api/orchestrators/TranscribeOrchestrator"
+    headers = {'Authorization': 'Bearer ' + access_token}
+    data = {'entryKeys': entry_keys}
+    response = requests.post(url, headers=headers, json=data)
+    # print(response.text)
+
+    # Check the response status
+    if response.status_code == 202:
+        # status_url = json.loads(response.text)['statusQueryGetUri']
+        instanceId = json.loads(response.text)['id']
+        # print(status_url)
+        return jsonify({"message": "Request sent successfully", "instanceId": instanceId}), 202
+    else:
+        return jsonify({"error": "Failed to send request"}), response.status_code
+
+
     # transcript_file_name = f"transcript/{blob_name}"
     # subtitle_file_name = f"subtitle/{blob_name}"
     # audio_file_name = f"audio/{blob_name}"
@@ -103,8 +137,8 @@ def transcribe():
     # entry = get_entry_by_id(getUserID(current_token), blob_name)
     # audio_data = entry['audio']
 
-    print(entry_keys)
-    return jsonify(entry_keys)
+    # print(entry_keys)
+    # return jsonify(entry_keys)
     
 
 

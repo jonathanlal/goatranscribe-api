@@ -1,7 +1,7 @@
 {
-    "azureFunctions.deploySubpath": "api",
+    "azureFunctions.deploySubpath": "durable_functions",
     "azureFunctions.scmDoBuildDuringDeployment": true,
     "azureFunctions.pythonVenv": ".venv",
     "azureFunctions.projectLanguage": "Python",
-    "azureFunctions.projectRuntime": "~4"
+    "azureFunctions.projectRuntime": "~3"
 }
