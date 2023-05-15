@@ -1,16 +1,40 @@
 from flask import Blueprint, request, jsonify
 from authlib.integrations.flask_oauth2 import ResourceProtector
-from flaskr.validator import Auth0JWTBearerTokenValidator
 from os import environ as env
 from auth0.authentication import GetToken
 from auth0.management import Auth0
 from authlib.integrations.flask_oauth2 import current_token
+import json
+from urllib.request import urlopen
+
+from authlib.oauth2.rfc7523 import JWTBearerTokenValidator
+from authlib.jose.rfc7517.jwk import JsonWebKey
+
 
 bp = Blueprint("auth", __name__)
+
+class Auth0JWTBearerTokenValidator(JWTBearerTokenValidator):
+    def __init__(self, domain, audience):
+        issuer = f"https://{domain}/"
+        jsonurl = urlopen(f"{issuer}.well-known/jwks.json")
+        public_key = JsonWebKey.import_key_set(
+            json.loads(jsonurl.read())
+        )
+        super(Auth0JWTBearerTokenValidator, self).__init__(
+            public_key
+        )
+        self.claims_options = {
+            "exp": {"essential": True},
+            "aud": {"essential": True, "value": audience},
+            "iss": {"essential": True, "value": issuer},
+        }
+
 
 require_auth = ResourceProtector()
 validator = Auth0JWTBearerTokenValidator(env.get("AUTH0_DOMAIN"), env.get("AUTH0_IDENTIFIER"))
 require_auth.register_token_validator(validator)
+
+
 
 # access tokens with an Auth0 API audience, excluding the /userinfo endpoint, cannot have private, non-namespaced custom claims
 # https://auth0.com/docs/secure/tokens/json-web-tokens/json-web-token-claims 
@@ -31,20 +55,20 @@ def getUserAppMetadata():
     auth0 = getAuth0Client()
     return auth0.users.get(current_token.get('sub'))['app_metadata']
 
-@bp.route("/refresh_token", methods=["POST"])
-def refresh_token():
-    client_id = env.get("AUTH0_CLIENT_ID")
-    client_secret = env.get("AUTH0_CLIENT_SECRET")
-    refresh_token = request.json.get("refresh_token")
+# @bp.route("/refresh_token", methods=["POST"])
+# def refresh_token():
+#     client_id = env.get("AUTH0_CLIENT_ID")
+#     client_secret = env.get("AUTH0_CLIENT_SECRET")
+#     refresh_token = request.json.get("refresh_token")
 
-    get_token = GetToken(env.get("AUTH0_DOMAIN"))
-    try:
-        token = get_token.refresh_token(
-            client_id, client_secret, refresh_token
-        )
-        return jsonify(token)
-    except Exception as e:
-        return jsonify({"error": str(e)}), 400
+#     get_token = GetToken(env.get("AUTH0_DOMAIN"))
+#     try:
+#         token = get_token.refresh_token(
+#             client_id, client_secret, refresh_token
+#         )
+#         return jsonify(token)
+#     except Exception as e:
+#         return jsonify({"error": str(e)}), 400
 
 # def get_user_metadata():
 #     # Get the user_id from the current_token

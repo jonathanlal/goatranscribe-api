@@ -7,8 +7,30 @@
 # - run pip install -r requirements.txt
 
 import logging
+# import time
 
 
 #input is the entry_key
 def main(input: str) -> str:
+
+    
+
+    # get file from azure
+
+    # get user balance
+
+    # get cost of file (check cost in firebase vs estimated cost)
+
+    # check if user balance is suffifient. 
+
+    #TODO prepocess audio file, convert to small file type (maybe even downscale if it doesn;t fuck with quality) and post small version to openAI
+
+    #TODO chunk files here with dfunction
+
+    # openAI.transcribe
+
+    # update user balance
+
+
+    # time.sleep(5)
     return f"Hello {input}!"

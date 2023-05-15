@@ -21,6 +21,9 @@ nltk.download('punkt')
 
 bp = Blueprint("transcribe", __name__)
 
+functions_url = env.get("FUNCTIONS_URL")
+
+
 
 def extract_text_from_srt(subtitles):
     text_content = ' '.join([subtitle.content for subtitle in subtitles])
@@ -84,13 +87,14 @@ def getCost(file_duration):
         rounded_estimated_cost = 0
     return rounded_estimated_cost
 
+
 @bp.route("/transcribeStatus", methods=["POST"])
 @require_auth(None)
 def check_transcribe_status():
     instance_id = request.json['instanceId']
     # Retrieve the status of the Durable Function using the instance ID
     # Implement the logic to fetch the status based on the instance ID
-    url = f"http://localhost:7071/runtime/webhooks/durabletask/instances/{instance_id}" # might need to add the other params to the url
+    url = f"{functions_url}runtime/webhooks/durabletask/instances/{instance_id}" # might need to add the other params to the url
     response = requests.get(url)
     responseJson = json.loads(response.text)
     print(responseJson)
@@ -102,7 +106,7 @@ def check_transcribe_status():
 @bp.route("/transcribe", methods=["POST"])
 @require_auth(None)
 def transcribe():
-    openai.api_key = env.get("OPENAI_API_KEY")
+    # openai.api_key = env.get("OPENAI_API_KEY")
     entry_keys = request.json['entryKeys']
 
     authorization_header = request.headers.get('Authorization')
@@ -113,11 +117,11 @@ def transcribe():
     # print(access_token)
 
     # make post request here with access token in authorization_header and entry_keys in body
-    url = "http://localhost:7071/api/orchestrators/TranscribeOrchestrator"
+    url = f"{functions_url}api/orchestrators/TranscribeOrchestrator"
     headers = {'Authorization': 'Bearer ' + access_token}
     data = {'entryKeys': entry_keys}
     response = requests.post(url, headers=headers, json=data)
-    # print(response.text)
+    print(response.text)
 
     # Check the response status
     if response.status_code == 202:
@@ -141,16 +145,6 @@ def transcribe():
     # return jsonify(entry_keys)
     
 
-
-    # get file from azure
-
-    # get user balance
-
-    # get cost of file (check cost in firebase vs estimated cost)
-
-    # check if user balance is suffifient. 
-
-    # deploy task worker 
 
 
         # inside task worker we send email when finished and update user balance in stripe

@@ -111,7 +111,6 @@ def get_uploads(user_id):
                 audio = entry_data.get('audio')
                 if audio is not None:
                     duration = float(audio.get("duration", 0))
-                    #remove this if after testing/developing
                     if duration > 0:
                         estimated_cost = duration * COST_PER_SECOND
                         rounded_estimated_cost = round(math.ceil(estimated_cost * 100) / 100, 2)

@@ -1,6 +1,8 @@
 from flask import Flask
 from dotenv import load_dotenv, find_dotenv
+from os import environ as env
 from flask_cors import CORS
+
 
 ENV_FILE = find_dotenv()
 if ENV_FILE:
@@ -8,7 +10,7 @@ if ENV_FILE:
 
 def create_app(test_config=None):
     app = Flask(__name__, instance_relative_config=True)
-    CORS(app, supports_credentials=True, origins=['http://localhost:3000'])  # Replace with the client app's origin
+    CORS(app, supports_credentials=True, origins=[env.get("FRONTEND_URL")])  # Replace with the client app's origin
 
 
     if test_config is None:
