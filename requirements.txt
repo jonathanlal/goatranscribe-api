@@ -18,3 +18,4 @@ auth0-python
 azure-functions
 azure-functions-durable
 gunicorn
+gevent>=1.4
