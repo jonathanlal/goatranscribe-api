@@ -17,3 +17,4 @@ stripe>=5.0.0
 auth0-python
 azure-functions
 azure-functions-durable
+gunicorn
