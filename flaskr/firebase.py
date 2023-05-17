@@ -22,6 +22,13 @@ firebase_admin.initialize_app(cred, {
     'databaseURL': 'https://goatranscribe-default-rtdb.europe-west1.firebasedatabase.app/'
 })
 
+def get_audio_info(entry_key, user_id):
+    test = f'users/{user_id}/transcripts/-{entry_key}/audio'
+    print('test', test)
+    ref = db.reference(test)
+    audio_info = ref.get()
+    return audio_info
+
 def create_entry_key(user_id):
     ref = db.reference(f'users/{user_id}/transcripts')
     new_entry = ref.push()
@@ -30,6 +37,10 @@ def create_entry_key(user_id):
 def get_entry(user_id, entry_key):
     ref = db.reference(f'users/{user_id}/transcripts/-{entry_key}')
     return ref.get()
+
+def update_audio_status(user_id, entry_key, new_status):
+    ref = db.reference(f'users/{user_id}/transcripts/-{entry_key}/audio')
+    ref.update({"status": new_status})
 
 
 def store_file_info(entry_key, file_category):

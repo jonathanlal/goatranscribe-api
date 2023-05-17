@@ -22,8 +22,7 @@ def add_wallet_credit():
     amount_in_dollars = request.json['amount']
     amount_in_cents = int(amount_in_dollars) * 100  
     intent_id = request.json.get('intent_id')
-
-    stripe_customer_id = getUserAppMetadata()['stripe_customer_id']
+    stripe_customer_id = getUserAppMetadata(current_token.get('sub'))['stripe_customer_id']
 
     if not intent_id:
         payment_intent = stripe.PaymentIntent.create(
@@ -45,13 +44,26 @@ def add_wallet_credit():
     'intent_id': payment_intent.id,
     })
 
+def get_balance(user_sub):
+    stripe_customer_id = getUserAppMetadata(user_sub)['stripe_customer_id']
+    customer = stripe.Customer.retrieve(stripe_customer_id)
+    return customer.balance
+
+def update_balance(new_balance_cents, user_sub):
+    stripe_customer_id = getUserAppMetadata(user_sub)['stripe_customer_id']
+
+    customer = stripe.Customer.modify(
+        stripe_customer_id,
+        balance=new_balance_cents
+    )
+
+    return customer.balance 
 
 @bp.route("/get_customer_balance", methods=["POST"])
 @require_auth(None)
 def get_customer_balance():
-    stripe_customer_id = getUserAppMetadata()['stripe_customer_id']
-    customer = stripe.Customer.retrieve(stripe_customer_id)
-    return jsonify({'balance': customer.balance / 100})
+    balance = get_balance(current_token.get('sub'))
+    return jsonify({'balance': balance / 100})
 
 
 @bp.route("/validate_payment", methods=["POST"])
@@ -67,7 +79,7 @@ def validate_payment():
             return jsonify({'error': 'Payment already confirmed'})
         else:
             store_payment_intent(user_id, intent_id)
-            stripe_customer_id = getUserAppMetadata()['stripe_customer_id']
+            stripe_customer_id = getUserAppMetadata(current_token.get('sub'))['stripe_customer_id']
             customer = stripe.Customer.retrieve(stripe_customer_id)
             new_balance = customer.balance + payment_intent.amount
             stripe.Customer.modify(stripe_customer_id, balance=new_balance)
@@ -78,7 +90,7 @@ def validate_payment():
 @bp.route("/get_customer_transactions", methods=["POST"])
 @require_auth(None)
 def get_customer_transactions():
-    stripe_customer_id = getUserAppMetadata()['stripe_customer_id']
+    stripe_customer_id = getUserAppMetadata(current_token.get('sub'))['stripe_customer_id']
     transactions = stripe.Charge.list(customer=stripe_customer_id)
     formatted_transactions = []
     for transaction in transactions:

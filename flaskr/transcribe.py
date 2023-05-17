@@ -121,13 +121,14 @@ def transcribe():
     headers = {'Authorization': 'Bearer ' + access_token}
     data = {'entryKeys': entry_keys}
     response = requests.post(url, headers=headers, json=data)
-    print(response.text)
+    # print(response.text)
 
     # Check the response status
     if response.status_code == 202:
         # status_url = json.loads(response.text)['statusQueryGetUri']
         instanceId = json.loads(response.text)['id']
         # print(status_url)
+        #instead of returning instanceId, we should create in firebase tasks/instanceId and update status there
         return jsonify({"message": "Request sent successfully", "instanceId": instanceId}), 202
     else:
         return jsonify({"error": "Failed to send request"}), response.status_code
@@ -147,7 +148,7 @@ def transcribe():
 
 
 
-        # inside task worker we send email when finished and update user balance in stripe
+        # inside task worker we send email when finished and update usfer balance in stripe
 
 
 
@@ -293,16 +294,30 @@ def sasToken():
 # def private_scoped():
 #     # ... code for private_scoped function ...
 
+# @bp.route("/sasUrl", methods=["POST"])
+# @require_auth(None)
+# def sasUrl():
+#     sas_url = get_container_sas()
+#     entry_key = create_entry_key(getUserID(current_token))
+#     response = {
+#         "message": "Generated SAS URL & entry key.",
+#         "sasUrl": sas_url,
+#         "entryKey": entry_key
+#     }
+#     print('endpoint hit: ', entry_key)
+#     return jsonify(response)
 @bp.route("/sasUrl", methods=["POST"])
 @require_auth(None)
 def sasUrl():
+    num_files = request.json.get('numFiles', 1)
     sas_url = get_container_sas()
-    entry_key = create_entry_key(getUserID(current_token))
+    entry_keys = [create_entry_key(getUserID(current_token)) for _ in range(num_files)]
     response = {
-        "message": "Generated SAS URL & entry key.",
+        "message": "Generated SAS URL & entry keys.",
         "sasUrl": sas_url,
-        "entryKey": entry_key
+        "entryKeys": entry_keys
     }
+    print('endpoint hit: ', entry_keys)
     return jsonify(response)
 
 

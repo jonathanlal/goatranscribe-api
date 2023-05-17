@@ -15,10 +15,19 @@ import azure.durable_functions as df
 
 def orchestrator_function(context: df.DurableOrchestrationContext):
     data = context.get_input()
+    user_id = data['user_id']
+    user_sub = data['user_sub']
     results = []
+    # type = data['type']
+    # if type == 'transcribe':
     for entry_key in data['entryKeys']:
-        result = yield context.call_activity('TranscribeActivityFunction', entry_key)
+        input_data = {"user_id": user_id, "entry_key": entry_key, "user_sub": user_sub}
+        result = yield context.call_activity('TranscribeActivityFunction', input_data)
         results.append(result)
+    # elif type == 'translate':
+    #     for entry_key in data['entryKeys']:
+    #         result = yield context.call_activity('TranslateActivityFunction', entry_key)
+    #         results.append(result)
         
     return results
 

@@ -9,8 +9,11 @@ def getBlobUrl(container_name, blob_name):
     sas_token = get_blob_sas(blob_name)
     return 'https://goatranscribe.azureedge.net/'+container_name+'/'+blob_name+'?'+sas_token
 
-def get_container_client():
-    container_name = getUserID(current_token)
+def get_container_client(user_id=None):
+    if user_id is None:
+        container_name = getUserID(current_token)
+    else:
+        container_name = user_id
     blob_service_client = BlobServiceClient.from_connection_string(env.get("AZURE_STORAGE_CONNECTION_STRING"))
     container_client = blob_service_client.get_container_client(container_name)
     try:
@@ -19,20 +22,20 @@ def get_container_client():
         pass  # Container already exists
     return {"container_client": container_client, "blob_service_client": blob_service_client, "container_name": container_name}
 
-def get_blob_client(blob_name):
-    container_client = get_container_client()["container_client"]
+def get_blob_client(blob_name, user_id=None):
+    container_client = get_container_client(user_id)["container_client"]
     return container_client.get_blob_client(blob_name)
 
-def upload_file_to_azure(blob_name, data, metadata=None):
-    blob_client = get_blob_client(blob_name)
+def upload_file_to_azure(blob_name, data, user_id=None, metadata=None):
+    blob_client = get_blob_client(blob_name, user_id)
     blob_client.upload_blob(data, overwrite=True, metadata=metadata)
 
-def file_exists_azure(blob_name):
-    blob_client = get_blob_client(blob_name)
+def file_exists_azure(blob_name, user_id=None):
+    blob_client = get_blob_client(blob_name, user_id)
     return blob_client.exists()
 
-def download_file_from_azure(blob_name):
-    blob_client = get_blob_client(blob_name)
+def download_file_from_azure(blob_name, user_id=None):
+    blob_client = get_blob_client(blob_name, user_id)
     return blob_client.download_blob()
 
 def upload_file_to_azure_blob(file):

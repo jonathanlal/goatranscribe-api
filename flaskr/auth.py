@@ -51,9 +51,9 @@ def getAuth0Client():
     token = get_token.client_credentials('https://{}/api/v2/'.format(domain))
     return Auth0(domain, token.get('access_token'))    
 
-def getUserAppMetadata():
+def getUserAppMetadata(user_sub):
     auth0 = getAuth0Client()
-    return auth0.users.get(current_token.get('sub'))['app_metadata']
+    return auth0.users.get(user_sub)['app_metadata']
 
 # @bp.route("/refresh_token", methods=["POST"])
 # def refresh_token():
