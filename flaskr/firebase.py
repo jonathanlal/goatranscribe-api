@@ -23,9 +23,7 @@ firebase_admin.initialize_app(cred, {
 })
 
 def get_audio_info(entry_key, user_id):
-    test = f'users/{user_id}/transcripts/-{entry_key}/audio'
-    print('test', test)
-    ref = db.reference(test)
+    ref = db.reference(f'users/{user_id}/transcripts/-{entry_key}/audio')
     audio_info = ref.get()
     return audio_info
 
@@ -43,9 +41,11 @@ def update_audio_status(user_id, entry_key, new_status):
     ref.update({"status": new_status})
 
 
-def store_file_info(entry_key, file_category):
-    user_id = getUserID(current_token)
-    blob = get_blob_client(f"{file_category}/{entry_key}")
+def store_file_info(entry_key, file_category, user_id=None):
+    if user_id is None:
+        user_id = getUserID(current_token)
+
+    blob = get_blob_client(f"{file_category}/{entry_key}", user_id)
     blob_properties = blob.get_blob_properties()
     metadata = blob_properties.metadata
     file_type = blob_properties.content_settings.content_type
@@ -129,7 +129,7 @@ def get_uploads(user_id):
                         rounded_estimated_cost = 0
                     
                     incomplete_uploads.append({
-                        "entry_id": entry_key.replace('-', ''),
+                        "entry_id": entry_key.replace('-', '', 1), # careful with this shit holy crap... only remove first '-'
                         "creation_date": audio["creation_date"],
                         "file_type": audio["file_type"],
                         "file_size": audio["file_size"],
