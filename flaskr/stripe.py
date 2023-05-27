@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify
 import stripe
 
-from flaskr.firebase import check_payment_intent_exists, store_payment_intent
+from flaskr.firebase import check_payment_intent_exists, get_transactions, store_payment_intent
 from .auth import getUserAppMetadata, require_auth, getUserID
 import os
 from dotenv import load_dotenv, find_dotenv
@@ -59,10 +59,12 @@ def update_balance(new_balance_cents, user_sub):
 
     return customer.balance 
 
+
 @bp.route("/get_customer_balance", methods=["POST"])
 @require_auth(None)
 def get_customer_balance():
     balance = get_balance(current_token.get('sub'))
+    print(balance)
     return jsonify({'balance': balance / 100})
 
 
@@ -90,16 +92,17 @@ def validate_payment():
 @bp.route("/get_customer_transactions", methods=["POST"])
 @require_auth(None)
 def get_customer_transactions():
-    stripe_customer_id = getUserAppMetadata(current_token.get('sub'))['stripe_customer_id']
-    transactions = stripe.Charge.list(customer=stripe_customer_id)
-    formatted_transactions = []
-    for transaction in transactions:
-        formatted_transactions.append({
-            'id': transaction.id,
-            'amount': '{:.2f}'.format(transaction.amount / 100),
-            'description': transaction.description,
-            'created': transaction.created,
-            # 'status': transaction.status
-        })
+    transactions = get_transactions(getUserID(current_token))
+    # stripe_customer_id = getUserAppMetadata(current_token.get('sub'))['stripe_customer_id']
+    # transactions = stripe.Charge.list(customer=stripe_customer_id)
+    # formatted_transactions = []
+    # for transaction in transactions:
+    #     formatted_transactions.append({
+    #         'id': transaction.id,
+    #         'amount': '{:.2f}'.format(transaction.amount / 100),
+    #         'description': transaction.description,
+    #         'created': transaction.created,
+    #         # 'status': transaction.status
+    #     })
 
-    return jsonify(formatted_transactions)
+    return jsonify(transactions)

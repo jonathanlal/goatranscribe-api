@@ -9,6 +9,8 @@ from urllib.request import urlopen
 
 from authlib.oauth2.rfc7523 import JWTBearerTokenValidator
 from authlib.jose.rfc7517.jwk import JsonWebKey
+import firebase_admin
+from firebase_admin import credentials
 
 
 bp = Blueprint("auth", __name__)

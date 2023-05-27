@@ -9,7 +9,7 @@ from os import environ as env
 import os
 import srt
 from azure.storage.blob import BlobServiceClient
-from flaskr.firebase import COST_PER_SECOND, create_entry_key, get_entry, get_entry_by_id, get_uploads, store_file_info
+from flaskr.firebase import COST_PER_SECOND, create_custom_token, create_entry_key, get_audio_info, get_entry, get_entry_by_id, get_tasks, get_transcript_time_taken, get_uploads, mark_task_as_seen, mark_tasks_as_seen, store_file_info
 from firebase_admin import db
 from flaskr.azure import download_file_from_azure, file_exists_azure, get_blob_client, get_container_sas, getBlobUrl, upload_file_to_azure
 from pydub import AudioSegment
@@ -24,6 +24,26 @@ bp = Blueprint("transcribe", __name__)
 functions_url = env.get("FUNCTIONS_URL")
 
 
+@bp.route("/init_firebase_auth", methods=["POST"])
+@require_auth(None)
+def init_firebase_auth():
+    user_id = getUserID(current_token)
+    firebase_token = create_custom_token(user_id)
+    return jsonify(firebase_token.decode())
+
+@bp.route("/transcript_seen", methods=["POST"])
+@require_auth(None)
+def transcript_seen():
+    user_id = getUserID(current_token)
+    mark_task_as_seen(user_id, request.json['entryKey'])
+    return jsonify({"message": "Transcript marked as seen."})
+
+@bp.route("/transcripts_seen", methods=["POST"])
+@require_auth(None)
+def transcripts_seen():
+    user_id = getUserID(current_token)
+    mark_tasks_as_seen(user_id, request.json['taskIds'])
+    return jsonify({"message": "Transcripts marked as seen."})
 
 def extract_text_from_srt(subtitles):
     text_content = ' '.join([subtitle.content for subtitle in subtitles])
@@ -88,6 +108,26 @@ def getCost(file_duration):
     return rounded_estimated_cost
 
 
+# @bp.route("/test", methods=["POST"])
+# def test():
+#     # entry_key = 'NV_YH6aYZGzPrbvHN8R'
+#     entry_key = request.args.get('entry_key')
+#     user_id = 'github13243000'
+
+#     try:
+#         info = get_audio_info(entry_key, user_id)
+#     except Exception as e:
+#         print('error: ', e)
+
+#     return jsonify(info)
+@bp.route("/tasks", methods=["POST"])
+@require_auth(None)
+def userTasks():
+    user_id = getUserID(current_token)
+    tasks = get_tasks(user_id)
+    return jsonify(tasks)
+
+
 @bp.route("/transcribeStatus", methods=["POST"])
 @require_auth(None)
 def check_transcribe_status():
@@ -103,6 +143,37 @@ def check_transcribe_status():
 
     return jsonify({"status": status, "output": output})
 
+
+@bp.route("/translate", methods=["POST"])
+@require_auth(None)
+def translate():
+    entry_keys = request.json['entryKeys']
+    target_langs = request.json['targetLangs']
+
+    authorization_header = request.headers.get('Authorization')
+    if authorization_header:
+        access_token = authorization_header.split(' ')[1]  # Assuming "Bearer <access_token>" format
+    else:
+        return jsonify({"error": "Missing access token"}), 401
+    # print(access_token)
+
+    # make post request here with access token in authorization_header and entry_keys in body
+    url = f"{functions_url}api/orchestrators/TaskOrchestrator"
+    headers = {'Authorization': 'Bearer ' + access_token}
+    data = {'entryKeys': entry_keys, 'task_type': 'translate', 'targetLangs': target_langs}
+    response = requests.post(url, headers=headers, json=data)
+    # print(response.text)
+
+    # Check the response status
+    if response.status_code == 202:
+        # status_url = json.loads(response.text)['statusQueryGetUri']
+        instanceId = json.loads(response.text)['id']
+        # print(status_url)
+        #instead of returning instanceId, we should create in firebase tasks/instanceId and update status there
+        return jsonify({"message": "Request sent successfully", "instanceId": instanceId}), 202
+    else:
+        return jsonify({"error": "Failed to send request"}), response.status_code
+
 @bp.route("/transcribe", methods=["POST"])
 @require_auth(None)
 def transcribe():
@@ -117,9 +188,9 @@ def transcribe():
     # print(access_token)
 
     # make post request here with access token in authorization_header and entry_keys in body
-    url = f"{functions_url}api/orchestrators/TranscribeOrchestrator"
+    url = f"{functions_url}api/orchestrators/TaskOrchestrator"
     headers = {'Authorization': 'Bearer ' + access_token}
-    data = {'entryKeys': entry_keys}
+    data = {'entryKeys': entry_keys, 'task_type': 'transcribe'}
     response = requests.post(url, headers=headers, json=data)
     # print(response.text)
 
@@ -325,20 +396,62 @@ def sasUrl():
 @require_auth(None)
 def transcript():
     entry_key = request.json['entry_id']
-    entry = get_entry(getUserID(current_token), entry_key)
+    lang = request.json['lang'] #if lang is default then run code as normal
+    user_id = getUserID(current_token)
+    entry = get_entry(user_id, entry_key)
 
+    print('lang: ', lang)
+    # transcribe_time_taken = get_transcript_time_taken(user_id, entry_key)
 
     audio_data = entry['audio']
-    subtitles_data = entry['subtitles']
+    audio_duration = audio_data['duration']
+    audio_file_size = audio_data['file_size']
+    language = audio_data.get('language')
+    iso = audio_data.get('iso')
     transcript_data = entry['transcript']
-    print(transcript_data['file_url'])
+    file_name = audio_data['file_name']
+    transcript_creation_date = transcript_data['creation_date']
+    word_count = transcript_data['word_count']
+    char_count = transcript_data['char_count']
+    # subtitles_data = entry['subtitles']
+    audio_duration = float(audio_duration)
+    # cost = math.ceil(audio_duration * COST_PER_SECOND)
+    # cost = audio_duration * COST_PER_SECOND
+    # print(transcript_data['file_url'])
+    estimated_cost = audio_duration * COST_PER_SECOND
+    cost = round(math.ceil(estimated_cost * 100) / 100, 2)
+    transcript_file_name = f"transcript/{entry_key}"
+    subtitle_file_name = f"subtitle/{entry_key}"
+    audio_file_name = f"audio/{entry_key}"
+    translations = transcript_data.get('translations', [])
+    print(translations)
 
-    transcript_blob_name = f"transcript/{entry_key}"
+    if lang != 'default' and lang in translations:
+        print('works!')
+        subtitle_file_name = f"subtitle/{entry_key}-{lang}"
+        transcript_file_name = f"transcript/{entry_key}-{lang}"
+
+    # transcript_blob_name = f"transcript/{entry_key}"
+
 
     try:
-        transcript_content_blob = download_file_from_azure(transcript_blob_name)
-        transcript_content = transcript_content_blob.content_as_text()
-        return jsonify({"transcript_content": transcript_content})
+        transcript_content = download_file_from_azure(transcript_file_name).content_as_text()
+        subtitles_content = download_file_from_azure(subtitle_file_name).content_as_text()
+        print(transcript_content)
+
+        return jsonify({"transcript_content": transcript_content, 
+                        "subtitles_content": subtitles_content,
+                        "transcript_creation_date": transcript_creation_date,
+                        "word_count": word_count,
+                        # "transcribe_time_taken": transcribe_time_taken,
+                        "char_count": char_count,
+                        "language": language,
+                        "translations": translations,
+                        "iso": iso,
+                        "audio_duration": audio_duration,
+                        "audio_file_size": audio_file_size,
+                        "file_name": file_name,
+                        "cost": cost})
     except Exception as e:
         return jsonify({"error": f"Failed to fetch transcript file: {str(e)}"}), 500
     
