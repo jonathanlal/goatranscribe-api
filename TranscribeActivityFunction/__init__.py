@@ -15,7 +15,7 @@ import srt
 import nltk
 from nltk.tokenize import word_tokenize
 
-from flaskr.azure import detect_language, download_file_from_azure, upload_file_to_azure
+from flaskr.azure import detect_language, download_file_from_azure, upload_file_to_azure, upload_file_to_container
 from flaskr.firebase import COST_PER_SECOND, create_task_entry_key, get_audio_info, store_file_info, store_transaction_info, update_audio_lang, update_audio_status, update_task_status
 from flaskr.stripe import get_balance, update_balance
 from flaskr.transcribe import extract_text_from_srt, subtitle_to_dict, transcribe_audio
@@ -39,8 +39,10 @@ def main(input: dict) -> str:
     user_sub = input["user_sub"]
     entry_key = input["entry_key"]
 
-    transcript_file_name = f"transcript/{entry_key}"
-    subtitle_file_name = f"subtitle/{entry_key}"
+    transcript_file_name = f"{entry_key}.txt"
+    # transcript_file_name = f"transcript/{entry_key}.txt"
+    subtitle_file_name = f"{entry_key}.srt"
+    # subtitle_file_name = f"subtitle/{entry_key}.srt"
     audio_file_name = f"audio/{entry_key}"
 
     update_audio_status(user_id, entry_key, "processing")
@@ -55,8 +57,6 @@ def main(input: dict) -> str:
     reimburse_cents = balance_in_cents + cost_in_cents
 
     task_id = create_task_entry_key(user_id, 'transcribe', entry_key, audio_info["file_name"])
-
-
 
     update_task_status(user_id, task_id, "downloading_file", "Downloading audio from file")
     try:
@@ -94,8 +94,12 @@ def main(input: dict) -> str:
 
     # upload subtitle file to azure & store subtitle file info in firebase
     update_task_status(user_id, task_id, "uploading_subtitles", "Uploading subtitles file")
-    upload_file_to_azure(subtitle_file_name, subtitles, user_id)
-    store_file_info(entry_key, 'subtitle', user_id)
+    
+    subtitle_container_name = f"{user_id}/subtitle"
+    # test = entry_key.lower().replace("_", "x0x").replace("-", "x1x")
+    # upload_file_to_azure(f"{test}.srt", subtitles, user_id)
+    upload_file_to_container(subtitles, subtitle_container_name, subtitle_file_name)
+    store_file_info(entry_key, 'subtitle', subtitle_file_name, user_id)
 
     # # upload transcript file to azure & store transcript file info in firebase
     subs = list(srt.parse(subtitles))
@@ -107,8 +111,10 @@ def main(input: dict) -> str:
         'charCount': str(len(transcript))
     }
     update_task_status(user_id, task_id, "uploading_transcript", "Uploading transcript file")
-    upload_file_to_azure(transcript_file_name, transcript, user_id, metadata=metadata)
-    store_file_info(entry_key, 'transcript', user_id)
+    transcript_container_name = f"{user_id}/transcript"
+    upload_file_to_container(transcript, transcript_container_name, transcript_file_name, metadata=metadata)
+    # upload_file_to_azure(transcript_file_name, transcript, user_id, metadata=metadata)
+    store_file_info(entry_key, 'transcript', transcript_file_name, user_id)
 
 
     MAX_CHAR_COUNT = 5000 #azure lang detect limit

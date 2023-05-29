@@ -6,7 +6,7 @@ from dotenv import load_dotenv, find_dotenv
 from firebase_admin import credentials, db, auth
 from authlib.integrations.flask_oauth2 import current_token
 from flaskr.auth import getUserID
-from flaskr.azure import get_blob_client
+from flaskr.azure import get_blob_client, get_blob_service_client
 import datetime
 
 ENV_FILE = find_dotenv()
@@ -44,6 +44,8 @@ def get_transcript_info(entry_key, user_id):
 def create_entry_key(user_id):
     ref = db.reference(f'users/{user_id}/transcripts')
     new_entry = ref.push()
+    # entry_key = new_entry.key[1:]
+    # entry_key = entry_key.lower().replace("_", "x0x").replace("-", )
     return new_entry.key[1:]
 
 def get_entry(user_id, entry_key):
@@ -64,7 +66,7 @@ def store_subtitles_translation_info(entry_key, target_lang, user_id=None):
     if user_id is None:
         user_id = getUserID(current_token)
 
-    blob = get_blob_client(f"subtitle/{entry_key}-{target_lang}", user_id)
+    blob = get_blob_client(f"subtitle/{entry_key}-{target_lang}.srt", user_id)
     blob_properties = blob.get_blob_properties()
     file_type = blob_properties.content_settings.content_type
     file_size = blob_properties.size
@@ -86,7 +88,7 @@ def store_transcript_translation_info(entry_key, target_lang, user_id=None):
     if user_id is None:
         user_id = getUserID(current_token)
 
-    blob = get_blob_client(f"transcript/{entry_key}-{target_lang}", user_id)
+    blob = get_blob_client(f"transcript/{entry_key}-{target_lang}.txt", user_id)
     blob_properties = blob.get_blob_properties()
     file_type = blob_properties.content_settings.content_type
     file_size = blob_properties.size
@@ -111,22 +113,35 @@ def update_transcript_translations(user_id, entry_key, new_lang):
     translations.append(new_lang)
     ref.update({"translations": translations})
 
-def store_file_info(entry_key, file_category, user_id=None):
+def update_summary_status(user_id, entry_key):
+    ref = db.reference(f'users/{user_id}/transcripts/-{entry_key}/transcript')
+    ref.update({"hasSummary": True})
+
+def update_paragraph_status(user_id, entry_key):
+    ref = db.reference(f'users/{user_id}/transcripts/-{entry_key}/transcript')
+    ref.update({"hasParagraphs": True})
+
+def store_file_info(entry_key, file_category, file_name=None, user_id=None):
     if user_id is None:
         user_id = getUserID(current_token)
-
-    blob = get_blob_client(f"{file_category}/{entry_key}", user_id)
+    
+    if file_name is None:
+        file_name = entry_key
+    # print(f"Storing file info for {entry_key} in {file_category} for user {user_id}" )
+    container_name = f"{user_id}/{file_category}"
+    blob = get_blob_service_client(container_name, file_name)
+    # blob = get_blob_client(f"{file_category}/{entry_key}", user_id) #here is the error, we need to add .srt if it's a subtitle
     blob_properties = blob.get_blob_properties()
     metadata = blob_properties.metadata
     file_type = blob_properties.content_settings.content_type
     file_size = blob_properties.size
     creation_date = blob_properties.creation_time.strftime("%Y-%m-%d %H:%M:%S")
-    file_url = f"https://goatranscribe.blob.core.windows.net/{user_id}/{file_category}/{entry_key}"
+    file_url = f"https://goatranscribe.blob.core.windows.net/{user_id}/{file_category}/{file_name}"
 
     ref = db.reference(f'users/{user_id}/transcripts/-{entry_key}')
     info = {
         file_category: {
-            "file_name": entry_key,
+            "file_name": file_name,
             "file_url": file_url,
             "file_type": file_type,
             "file_size": file_size,

@@ -119,7 +119,24 @@ async def main(req: func.HttpRequest, starter: str) -> func.HttpResponse:
             translation_cost_per_lang_in_cents = math.ceil(transcript_chars * COST_PER_CHARACTER * 100)  # cost in cents for one language
             total_cost_in_cents += translation_cost_per_lang_in_cents * len(target_langs)  # multiply by the number of target languages
             data['targetLangs'] = target_langs
-
+    elif task_type == "summarize":
+        entry_key = data['entryKey']
+        transcript_info = get_transcript_info(entry_key, user_id)
+        hasSummary = transcript_info.get("hasSummary", False)
+        if hasSummary is True:
+            return func.HttpResponse("Already summarized", status_code=400)
+        else:
+            transcript_chars = int(transcript_info.get("char_count"))
+            total_cost_in_cents = math.ceil(transcript_chars * COST_PER_CHARACTER * 100) # maybe change cost per character for summariees?
+    elif task_type == "paragraph":
+        entry_key = data['entryKey']
+        transcript_info = get_transcript_info(entry_key, user_id)
+        hasParagraph = transcript_info.get("hasParagraphs", False)
+        if hasParagraph is True:
+            return func.HttpResponse("Already has paragraphs", status_code=400)
+        else:
+            transcript_chars = int(transcript_info.get("char_count"))
+            total_cost_in_cents = math.ceil(transcript_chars * COST_PER_CHARACTER * 100) # maybe change cost per character for summariees?
 
     if(balance_in_cents < total_cost_in_cents):
         return func.HttpResponse("Not enough funds in account", status_code=402)

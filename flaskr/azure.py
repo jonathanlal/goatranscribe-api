@@ -71,6 +71,11 @@ def get_blob_client(blob_name, user_id=None):
     container_client = get_container_client(user_id)["container_client"]
     return container_client.get_blob_client(blob_name)
 
+def get_blob_service_client(container_name, blob_name):
+    blob_service_client = BlobServiceClient.from_connection_string(env.get("AZURE_STORAGE_CONNECTION_STRING"))
+    blob_client = blob_service_client.get_container_client(container_name)
+    return blob_client.get_blob_client(blob_name)
+
 def upload_file_to_azure(blob_name, data, user_id=None, metadata=None):
     blob_client = get_blob_client(blob_name, user_id)
     blob_client.upload_blob(data, overwrite=True, metadata=metadata)
@@ -125,6 +130,7 @@ def get_container_sas(user_id=None):
     account_url = blob_service_client.primary_endpoint
     sas_container = f"{account_url}?{sas_token}"
     return sas_container
+
 
 def get_blob_sas(blob_name):
     clients = get_container_client()

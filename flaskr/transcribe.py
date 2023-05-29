@@ -11,7 +11,7 @@ import srt
 from azure.storage.blob import BlobServiceClient
 from flaskr.firebase import COST_PER_SECOND, create_custom_token, create_entry_key, get_audio_info, get_entry, get_entry_by_id, get_tasks, get_transcript_time_taken, get_uploads, mark_task_as_seen, mark_tasks_as_seen, store_file_info
 from firebase_admin import db
-from flaskr.azure import download_file_from_azure, file_exists_azure, get_blob_client, get_container_sas, getBlobUrl, upload_file_to_azure
+from flaskr.azure import download_file_from_azure, file_exists_azure, get_blob_client, get_blob_sas, get_container_sas, getBlobUrl, upload_file_to_azure
 from pydub import AudioSegment
 import tempfile
 import nltk
@@ -70,6 +70,69 @@ def transcribe_audio(audio_file):
     
     # print(transcript)
     return transcript
+
+def create_summary(text_to_summarize):
+    prompt_with_instruction = [
+        {"role": "system", "content": "You are a helpful assistant."},
+        {"role": "user", "content": text_to_summarize},
+        {"role": "user", "content": "Summarize this."},
+    ]
+    
+    response = openai.ChatCompletion.create(
+        model="gpt-4", 
+        messages=prompt_with_instruction,
+        temperature=0.3,
+        max_tokens=2000,
+        frequency_penalty=0.0,
+        presence_penalty=0.0,
+    )
+    
+    return response
+
+#TOO SLOW
+# def add_paragraphs(text_to_paragraph):
+#     prompt_with_instruction = [
+#         {"role": "system", "content": "You are a helpful assistant."},
+#         {"role": "user", "content": text_to_paragraph},
+#         {"role": "user", "content": "Add paragraphs to this."},
+#     ]
+    
+#     response = openai.ChatCompletion.create(
+#         model="gpt-4", 
+#         messages=prompt_with_instruction,
+#         temperature=0.3,
+#         frequency_penalty=0.0,
+#         presence_penalty=0.0,
+#     )
+    
+#     return response['choices'][0]['message']['content']
+
+
+def add_paragraphs(text_to_paragraph):
+    # Splitting the text into chunks of 500 words
+    chunks = text_to_paragraph.split(' ', 500)
+
+    # Initialize an empty string to store the result
+    result = ""
+
+    # Process each chunk individually
+    for chunk in chunks:
+        instruction = "Add paragraphs to the following text without modifying the text, the paragraphs should be added in appropriate places:"
+        prompt = f"{instruction}\n\n{chunk}"
+
+        response = openai.Completion.create(
+            model="text-davinci-003",
+            prompt=prompt,
+            temperature=0.7,
+            max_tokens=2000,  # Adjust this value based on your needs
+        )
+
+        # Append the output to the result string
+        result += response.choices[0].text.strip()
+
+    return result
+    # return response['choices'][0]['message']['content']
+
 
 
 def subtitle_to_dict(subtitle):
@@ -142,6 +205,76 @@ def check_transcribe_status():
     output = responseJson['output']
 
     return jsonify({"status": status, "output": output})
+
+@bp.route("/get_paragraphed", methods=["POST"])
+@require_auth(None)
+def get_paragraphed():
+    entry_key = request.json['entryKey']
+    paragraphed_transcript_file_name = f"paragraphed/{entry_key}.txt"
+    paragraphed_transcript = download_file_from_azure(paragraphed_transcript_file_name).content_as_text()
+    return jsonify(paragraphed_transcript)
+
+@bp.route("/paragraph", methods=["POST"])
+@require_auth(None)
+def paragraph_transcript():
+    entry_key = request.json['entryKey']
+    authorization_header = request.headers.get('Authorization')
+    if authorization_header:
+        access_token = authorization_header.split(' ')[1]  # Assuming "Bearer <access_token>" format
+    else:
+        return jsonify({"error": "Missing access token"}), 401
+
+    # make post request here with access token in authorization_header and entry_keys in body
+    url = f"{functions_url}api/orchestrators/TaskOrchestrator"
+    headers = {'Authorization': 'Bearer ' + access_token}
+    data = {'entryKey': entry_key, 'task_type': 'paragraph'}
+    response = requests.post(url, headers=headers, json=data)
+    # print(response.text)
+
+    # Check the response status
+    if response.status_code == 202:
+        # status_url = json.loads(response.text)['statusQueryGetUri']
+        instanceId = json.loads(response.text)['id']
+        # print(status_url)
+        #instead of returning instanceId, we should create in firebase tasks/instanceId and update status there
+        return jsonify({"message": "Request sent successfully", "instanceId": instanceId}), 202
+    else:
+        return jsonify({"error": "Failed to send request"}), response.status_code
+
+@bp.route("/get_summary", methods=["POST"])
+@require_auth(None)
+def get_summary():
+    entry_key = request.json['entryKey']
+    summary_file_name = f"summary/{entry_key}.txt"
+    summary_content = download_file_from_azure(summary_file_name).content_as_text()
+    return jsonify(summary_content)
+
+@bp.route("/summarize", methods=["POST"])
+@require_auth(None)
+def summarize():
+    entry_key = request.json['entryKey']
+    authorization_header = request.headers.get('Authorization')
+    if authorization_header:
+        access_token = authorization_header.split(' ')[1]  # Assuming "Bearer <access_token>" format
+    else:
+        return jsonify({"error": "Missing access token"}), 401
+
+    # make post request here with access token in authorization_header and entry_keys in body
+    url = f"{functions_url}api/orchestrators/TaskOrchestrator"
+    headers = {'Authorization': 'Bearer ' + access_token}
+    data = {'entryKey': entry_key, 'task_type': 'summarize'}
+    response = requests.post(url, headers=headers, json=data)
+    # print(response.text)
+
+    # Check the response status
+    if response.status_code == 202:
+        # status_url = json.loads(response.text)['statusQueryGetUri']
+        instanceId = json.loads(response.text)['id']
+        # print(status_url)
+        #instead of returning instanceId, we should create in firebase tasks/instanceId and update status there
+        return jsonify({"message": "Request sent successfully", "instanceId": instanceId}), 202
+    else:
+        return jsonify({"error": "Failed to send request"}), response.status_code
 
 
 @bp.route("/translate", methods=["POST"])
@@ -391,6 +524,21 @@ def sasUrl():
     print('endpoint hit: ', entry_keys)
     return jsonify(response)
 
+@bp.route("/get_download_link", methods=["POST"])
+@require_auth(None)
+def get_download_link():
+    entry_key = request.json['entryKey']
+    target_lang = request.json['targetLang']
+    format = request.json['format']
+    container_name = getUserID(current_token)
+
+    file_prefix = "subtitle" if format == 'srt' else "transcript"
+    lang_suffix = "" if target_lang == 'default' else f"-{target_lang}"
+    file_name = f"{file_prefix}/{entry_key}{lang_suffix}.{format}"
+
+    download_link = getBlobUrl(container_name, file_name)
+    return jsonify(download_link)
+
 
 @bp.route("/transcript", methods=["POST"])
 @require_auth(None)
@@ -400,7 +548,7 @@ def transcript():
     user_id = getUserID(current_token)
     entry = get_entry(user_id, entry_key)
 
-    print('lang: ', lang)
+    # print('lang: ', lang)
     # transcribe_time_taken = get_transcript_time_taken(user_id, entry_key)
 
     audio_data = entry['audio']
@@ -413,6 +561,9 @@ def transcript():
     transcript_creation_date = transcript_data['creation_date']
     word_count = transcript_data['word_count']
     char_count = transcript_data['char_count']
+    hasSummary = transcript_data.get('hasSummary', False)
+    hasParagraphs = transcript_data.get('hasParagraphs', False)
+    # print('hasSummary: ', hasSummary)
     # subtitles_data = entry['subtitles']
     audio_duration = float(audio_duration)
     # cost = math.ceil(audio_duration * COST_PER_SECOND)
@@ -420,16 +571,19 @@ def transcript():
     # print(transcript_data['file_url'])
     estimated_cost = audio_duration * COST_PER_SECOND
     cost = round(math.ceil(estimated_cost * 100) / 100, 2)
-    transcript_file_name = f"transcript/{entry_key}"
-    subtitle_file_name = f"subtitle/{entry_key}"
+    transcript_file_name = f"transcript/{entry_key}.txt"
+    subtitle_file_name = f"subtitle/{entry_key}.srt"
+    summary_file_name = f"summary/{entry_key}.txt"
+    paragraphed_file_name = f"paragraphed/{entry_key}.txt"
     audio_file_name = f"audio/{entry_key}"
     translations = transcript_data.get('translations', [])
-    print(translations)
+    # print(translations)
 
     if lang != 'default' and lang in translations:
-        print('works!')
-        subtitle_file_name = f"subtitle/{entry_key}-{lang}"
-        transcript_file_name = f"transcript/{entry_key}-{lang}"
+        # print('works!')
+        subtitle_file_name = f"subtitle/{entry_key}-{lang}.srt"
+        transcript_file_name = f"transcript/{entry_key}-{lang}.txt"
+   
 
     # transcript_blob_name = f"transcript/{entry_key}"
 
@@ -437,13 +591,19 @@ def transcript():
     try:
         transcript_content = download_file_from_azure(transcript_file_name).content_as_text()
         subtitles_content = download_file_from_azure(subtitle_file_name).content_as_text()
-        print(transcript_content)
+        summary_content = "" if not hasSummary else download_file_from_azure(summary_file_name).content_as_text()
+        paragraph_content = "" if not hasParagraphs else download_file_from_azure(paragraphed_file_name).content_as_text()
+        # print(transcript_content)
 
         return jsonify({"transcript_content": transcript_content, 
                         "subtitles_content": subtitles_content,
                         "transcript_creation_date": transcript_creation_date,
                         "word_count": word_count,
                         # "transcribe_time_taken": transcribe_time_taken,
+                        "hasSummary": hasSummary,
+                        "hasParagraphs": hasParagraphs,
+                        "summary_content": summary_content,
+                        "paragraph_content": paragraph_content,
                         "char_count": char_count,
                         "language": language,
                         "translations": translations,

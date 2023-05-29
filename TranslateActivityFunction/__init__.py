@@ -13,8 +13,6 @@ import os
 import tempfile
 import time
 import srt
-# import nltk
-# from nltk.tokenize import word_tokenize
 
 from flaskr.azure import create_container_and_sas, delete_container, detect_language, download_file_from_azure, download_file_from_container, get_blob_sas_test, translate_docs, upload_file_to_azure, upload_file_to_container
 from flaskr.firebase import COST_PER_CHARACTER, COST_PER_SECOND, create_task_entry_key, get_audio_info, get_transcript_info, store_file_info, store_subtitles_translation_info, store_transaction_info, store_transcript_translation_info, update_audio_lang, update_audio_status, update_task_status, update_transcript_translations
@@ -23,11 +21,6 @@ from flaskr.transcribe import extract_text_from_srt, subtitle_to_dict, transcrib
 import datetime
 import math
 
-
-# nltk.download('punkt')
-
-
-#input is the entry_key
 def main(input: dict) -> str:
     start_time = datetime.datetime.now()
 
@@ -36,11 +29,10 @@ def main(input: dict) -> str:
     entry_key = input["entry_key"]
     target_lang = input["target_lang"] #fr, es, de, etc.
 
-    logging.info("UPLOADING FILE!!!!!!!!!!!!!!!!!!!!!!!!")
     # transcript_file_name = f"transcript/{entry_key}"
-    subtitle_file_name = f"subtitle/{entry_key}"
-    translated_subtitle_file_name = f"subtitle/{entry_key}-{target_lang}"
-    translated_transcript_file_name = f"transcript/{entry_key}-{target_lang}"
+    subtitle_file_name = f"subtitle/{entry_key}.srt"
+    translated_subtitle_file_name = f"subtitle/{entry_key}-{target_lang}.srt"
+    translated_transcript_file_name = f"transcript/{entry_key}-{target_lang}.txt"
 
     balance_in_cents = get_balance(user_sub)
 
@@ -63,28 +55,19 @@ def main(input: dict) -> str:
         return json.dumps({entry_key: "download_failed"})
     
     subtitles = subtitles_file.content_as_text()
-    logging.info("SUBTITLES FILE: %s", subtitles)
 
     update_task_status(user_id, task_id, "translating", "Translating text in file")
     # task_id = "nwnhxh2bo0kzauip9lx"
-    compliant_task_id_name = task_id.lower().replace("_", "x0x")
-    source_container_name = f"{compliant_task_id_name}-source"
-    target_container_name = f"{compliant_task_id_name}-target"
-    source_translation_container = get_blob_sas_test(source_container_name, target_lang)
+    compliant_task_id_name = task_id.lower().replace("_", "x0x") # azure has fucked up requirements for container names (no _,must have number or letter after a -)
+    source_container_name = f"{compliant_task_id_name}x-source" 
+    target_container_name = f"{compliant_task_id_name}x-target" # -NWX5dN0ZMv6w4kzp9R-  (-NWX5dN0ZMv6w4kzp9R--target would fail, so -NWX5dN0ZMv6w4kzp9R-x-target)
+    # source_translation_container = get_blob_sas_test(source_container_name, target_lang)
     source_translation_container = create_container_and_sas(source_container_name)
     target_translation_container = create_container_and_sas(target_container_name)
     # upload subtitle file to azure container (required for translation) # it translates all the files in a container
-    logging.info("UPLOADING FILE!!!!!!!!!!!!!!!!!!!!!!!!")
-    logging.info("UPLOADING FILE!!!!!!!!!!!!!!!!!!!!!!!!")
-    logging.info("UPLOADING FILE!!!!!!!!!!!!!!!!!!!!!!!!")
     upload_file_to_container(subtitles, source_container_name, f"{target_lang}.txt") # needs valid file format like .txt jesus christ
     # start translation (stores translated file in target)
-    logging.info("Creating translation job...")
-    logging.info("target_language: %s", target_lang)
-    logging.info("sourceUrl: %s", source_translation_container)
-    logging.info("targetUrl: %s", target_translation_container)
 
-    # time.sleep(10)
     try:
 
         poller = translate_docs(target_lang, source_translation_container, target_translation_container)
@@ -104,26 +87,20 @@ def main(input: dict) -> str:
             if document.status == "Succeeded":
                 update_task_status(user_id, task_id, "downloading_file", "Downloading translated file")
                 # download translated file from stored location after translation is done
-                logging.info("EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE")
                 translated_subtitle_file = download_file_from_container(target_container_name, f"{target_lang}.txt")
                 translated_subtitle_file = translated_subtitle_file.content_as_text()
-                logging.info("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
-                logging.info(translated_subtitle_file)
-                logging.info("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
                 upload_file_to_azure(translated_subtitle_file_name, translated_subtitle_file, user_id)
                 store_subtitles_translation_info(entry_key, target_lang, user_id)
 
 
                 subs = list(srt.parse(translated_subtitle_file))
                 transcript = extract_text_from_srt(subs)
-                logging.info(transcript)
-                logging.info("OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO")
                 upload_file_to_azure(translated_transcript_file_name, transcript, user_id)
                 store_transcript_translation_info(entry_key, target_lang, user_id)
 
                 #update firebase transcript info with available translation
                 update_transcript_translations(user_id, entry_key, target_lang)
-                logging.info("ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZz")
+                # logging.info("ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZz")
                 #delete containers
                 delete_container(source_container_name)
                 delete_container(target_container_name)
