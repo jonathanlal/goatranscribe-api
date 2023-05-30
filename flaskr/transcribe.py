@@ -307,35 +307,49 @@ def translate():
     else:
         return jsonify({"error": "Failed to send request"}), response.status_code
 
+import logging
+
 @bp.route("/transcribe", methods=["POST"])
 @require_auth(None)
 def transcribe():
-    # openai.api_key = env.get("OPENAI_API_KEY")
+    # Set the logging level to INFO
+    logging.basicConfig(level=logging.INFO)
+
     entry_keys = request.json['entryKeys']
+    logging.info('Received entry keys: %s', entry_keys)
 
     authorization_header = request.headers.get('Authorization')
     if authorization_header:
         access_token = authorization_header.split(' ')[1]  # Assuming "Bearer <access_token>" format
+        logging.info('Access token acquired')
     else:
+        logging.error('Missing access token')
         return jsonify({"error": "Missing access token"}), 401
-    # print(access_token)
 
     # make post request here with access token in authorization_header and entry_keys in body
     url = f"{functions_url}api/orchestrators/TaskOrchestrator"
     headers = {'Authorization': 'Bearer ' + access_token}
     data = {'entryKeys': entry_keys, 'task_type': 'transcribe'}
-    response = requests.post(url, headers=headers, json=data)
+    logging.info('Sending POST request to %s with headers %s and data %s', url, headers, data)
+    
+    try:
+        response = requests.post(url, headers=headers, json=data)
+        logging.info('Response received from POST request')
+    except Exception as e:
+        logging.error('Error during POST request: %s', str(e))
+        return jsonify({"error": "Failed to send request due to an exception: "+str(e)}), 500
+
     # print(response.text)
 
     # Check the response status
     if response.status_code == 202:
-        # status_url = json.loads(response.text)['statusQueryGetUri']
         instanceId = json.loads(response.text)['id']
-        # print(status_url)
-        #instead of returning instanceId, we should create in firebase tasks/instanceId and update status there
+        logging.info('Request sent successfully. Instance ID: %s', instanceId)
         return jsonify({"message": "Request sent successfully", "instanceId": instanceId}), 202
     else:
+        logging.error('Failed to send request. Response code: %s', response.status_code)
         return jsonify({"error": "Failed to send request"}), response.status_code
+
 
 
     # transcript_file_name = f"transcript/{blob_name}"
