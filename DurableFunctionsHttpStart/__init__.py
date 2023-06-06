@@ -138,15 +138,16 @@ async def main(req: func.HttpRequest, starter: str) -> func.HttpResponse:
             transcript_chars = int(transcript_info.get("char_count"))
             total_cost_in_cents = math.ceil(transcript_chars * COST_PER_CHARACTER * 100) # maybe change cost per character for summariees?
 
-    if(balance_in_cents < total_cost_in_cents):
-        return func.HttpResponse("Not enough funds in account", status_code=402)
+    if task_type != "encode":
+        if(balance_in_cents < total_cost_in_cents):
+            return func.HttpResponse("Not enough funds in account", status_code=402)
+        
+        new_balance = balance_in_cents - total_cost_in_cents
+        stripe_balance = update_balance(new_balance, user_sub)
     
-    new_balance = balance_in_cents - total_cost_in_cents
-    stripe_balance = update_balance(new_balance, user_sub)
- 
-    # #this should never happen
-    if(stripe_balance != new_balance):
-        return func.HttpResponse("Balance mismatch, contact support", status_code=402)
+        # #this should never happen
+        if(stripe_balance != new_balance):
+            return func.HttpResponse("Balance mismatch, contact support", status_code=402)
 
     client = df.DurableOrchestrationClient(starter)
     instance_id = await client.start_new(req.route_params["functionName"], None, data)

@@ -11,11 +11,13 @@ import srt
 from azure.storage.blob import BlobServiceClient
 from flaskr.firebase import COST_PER_SECOND, create_custom_token, create_entry_key, get_audio_info, get_entry, get_entry_by_id, get_tasks, get_transcript_time_taken, get_uploads, mark_task_as_seen, mark_tasks_as_seen, store_file_info
 from firebase_admin import db
-from flaskr.azure import download_file_from_azure, file_exists_azure, get_blob_client, get_blob_sas, get_container_sas, getBlobUrl, upload_file_to_azure
+from flaskr.azure import copy_encoded_asset_to_user_container, create_media_service_asset, download_file_from_azure, file_exists_azure, get_blob_client, get_blob_sas, get_container_sas, get_encoded_file_name_from_asset, getBlobUrl, sanitize_container_name, upload_file_to_azure
 from pydub import AudioSegment
 import tempfile
 import nltk
 from nltk.tokenize import word_tokenize
+
+
 
 nltk.download('punkt')
 
@@ -49,7 +51,7 @@ def extract_text_from_srt(subtitles):
     text_content = ' '.join([subtitle.content for subtitle in subtitles])
     return text_content
 
-def transcribe_audio(audio_file):
+def transcribe_audio(audio_file, initial_prompt=None):
     # verbose = None
     # temperature = (0.0, 0.2, 0.4, 0.6, 0.8, 1.0)
     # compression_ratio_threshold = 2.4
@@ -65,21 +67,59 @@ def transcribe_audio(audio_file):
         model="whisper-1",
         file=audio_file,
         word_timestamps=word_timestamps,
-        response_format="srt"
+        response_format="srt",
+        initial_prompt=initial_prompt,
     )
     
     # print(transcript)
     return transcript
 
+# def create_summary(text_to_summarize):
+#     prompt_with_instruction = [
+#         {"role": "system", "content": "You are a helpful assistant."},
+#         {"role": "user", "content": text_to_summarize},
+#         {"role": "user", "content": "Summarize this."},
+#     ]
+    
+#     response = openai.ChatCompletion.create(
+#         model="gpt-4", 
+#         messages=prompt_with_instruction,
+#         temperature=0.3,
+#         max_tokens=2000,
+#         frequency_penalty=0.0,
+#         presence_penalty=0.0,
+#     )
+    
+#     return response
+
 def create_summary(text_to_summarize):
+    # Split the input text into chunks of maximum allowed length
+    chunk_size = 8000  # Adjust the chunk size as needed
+    text_chunks = [text_to_summarize[i:i+chunk_size] for i in range(0, len(text_to_summarize), chunk_size)]
+    logging.info('Number of chunks: %s', len(text_chunks))
+    summaries = []
+    for chunk in text_chunks:
+        response = generate_summary_chunk(chunk)
+        summary = response['choices'][0]['message']['content']
+        summaries.append(summary)
+    
+    # Combine the summaries into a single summary
+    combined_summary = ' '.join(summaries)
+    if len(text_chunks) > 1:
+        combined_summary = generate_summary_chunk(combined_summary)
+    
+    return combined_summary
+
+
+def generate_summary_chunk(chunk):
     prompt_with_instruction = [
         {"role": "system", "content": "You are a helpful assistant."},
-        {"role": "user", "content": text_to_summarize},
+        {"role": "user", "content": chunk},
         {"role": "user", "content": "Summarize this."},
     ]
     
     response = openai.ChatCompletion.create(
-        model="gpt-4", 
+        model="gpt-4",
         messages=prompt_with_instruction,
         temperature=0.3,
         max_tokens=2000,
@@ -88,6 +128,8 @@ def create_summary(text_to_summarize):
     )
     
     return response
+
+
 
 #TOO SLOW
 # def add_paragraphs(text_to_paragraph):
@@ -171,18 +213,18 @@ def getCost(file_duration):
     return rounded_estimated_cost
 
 
-# @bp.route("/test", methods=["POST"])
+# @bp.route("/test", methods=["GET"])
 # def test():
-#     # entry_key = 'NV_YH6aYZGzPrbvHN8R'
-#     entry_key = request.args.get('entry_key')
-#     user_id = 'github13243000'
+#     entry_key = "NWruCdEWMHE2nJAnmE2"
+#     user_id = "google-oauth2107710671190499472104"
+#     encoded_file_name = get_encoded_file_name_from_asset(entry_key)
+#     asset_container_name = sanitize_container_name(entry_key)
+#     copy_encoded_asset_to_user_container(asset_container_name, encoded_file_name, f"{entry_key}.mp4", user_id)
 
-#     try:
-#         info = get_audio_info(entry_key, user_id)
-#     except Exception as e:
-#         print('error: ', e)
+#     # print(info)
+#     return jsonify('hello')
 
-#     return jsonify(info)
+
 @bp.route("/tasks", methods=["POST"])
 @require_auth(None)
 def userTasks():
@@ -486,10 +528,49 @@ def newEntry():
 def uploadComplete():
     entry_key = request.json['entryKey']
     store_file_info(entry_key, "audio")
-    response = {
-        "message": "Audio data saved.",
-    }
-    return jsonify(response)
+    # print('entry_key: ', entry_key)
+    # asset = create_media_service_asset(entry_key)
+    # print('asset: ', asset)
+
+
+    authorization_header = request.headers.get('Authorization')
+    if authorization_header:
+        access_token = authorization_header.split(' ')[1]  # Assuming "Bearer <access_token>" format
+        logging.info('Access token acquired')
+    else:
+        logging.error('Missing access token')
+        return jsonify({"error": "Missing access token"}), 401
+
+    # make post request here with access token in authorization_header and entry_keys in body
+    url = f"{functions_url}api/orchestrators/TaskOrchestrator"
+    headers = {'Authorization': 'Bearer ' + access_token}
+    data = {'entryKey': entry_key, 'task_type': 'encode'}
+    logging.info('Sending POST request to %s with headers %s and data %s', url, headers, data)
+    
+    try:
+        response = requests.post(url, headers=headers, json=data)
+        logging.info('Response received from POST request')
+    except Exception as e:
+        logging.error('Error during POST request: %s', str(e))
+        return jsonify({"error": "Failed to send request due to an exception: "+str(e)}), 500
+
+    # print(response.text)
+
+    # Check the response status
+    if response.status_code == 202:
+        instanceId = json.loads(response.text)['id']
+        logging.info('Request sent successfully. Instance ID: %s', instanceId)
+        return jsonify({"message": "Request sent successfully", "instanceId": instanceId}), 202
+    else:
+        logging.error('Failed to send request. Response code: %s', response.status_code)
+        return jsonify({"error": "Failed to send request"}), response.status_code
+
+
+
+    # response = {
+    #     "message": "Audio data saved, encoding started.",
+    # }
+    # return jsonify(response)
 
 @bp.route("/sasToken", methods=["POST"])
 @require_auth(None)
@@ -633,6 +714,6 @@ def transcript():
 @require_auth(None)
 def uploads():
     uploads = get_uploads(getUserID(current_token))
-    print(uploads)
+    # print(uploads)
     return jsonify(uploads)
  

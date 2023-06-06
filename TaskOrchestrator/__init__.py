@@ -34,6 +34,11 @@ def orchestrator_function(context: df.DurableOrchestrationContext):
             input_data = {"user_id": user_id, "entry_key": data['entryKey'], "user_sub": user_sub}
             result = yield context.call_activity('ParagraphActivityFunction', input_data)
             results.append(result)
+
+    elif task_type == 'encode':
+        input_data = {"user_id": user_id, "entry_key": data['entryKey'], "user_sub": user_sub}
+        result = yield context.call_activity('EncodeAudioActivityFunction', input_data)
+        results.append(result)
         
     return results
 

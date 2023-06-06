@@ -56,6 +56,14 @@ def update_audio_status(user_id, entry_key, new_status):
     ref = db.reference(f'users/{user_id}/transcripts/-{entry_key}/audio')
     ref.update({"status": new_status})
 
+def update_audio_encoded(user_id, entry_key):
+    ref = db.reference(f'users/{user_id}/transcripts/-{entry_key}/audio')
+    ref.update({"encoded": True})
+
+def update_audio_encoded_progress(user_id, entry_key, progress):
+    ref = db.reference(f'users/{user_id}/transcripts/-{entry_key}/audio')
+    ref.update({"encoded_progress": progress})
+
 def update_audio_lang(user_id, entry_key, lang, iso):
     ref = db.reference(f'users/{user_id}/transcripts/-{entry_key}/audio')
     ref.update({"language": lang, "iso": iso})
@@ -156,7 +164,7 @@ def store_file_info(entry_key, file_category, file_name=None, user_id=None):
         info[file_category]["file_name"] = metadata['fileName']
         info[file_category]["file_extension"] = metadata['fileExtension']
         info[file_category]["duration"] = metadata['duration']
-        info[file_category]["status"] = "pending"
+        info[file_category]["status"] = "Ready"
 
     ref.update(info)
 
@@ -229,7 +237,7 @@ def check_already_transcribed(user_id, entry_key):
 
     if tasks:
         for task_id, task_data in tasks.items():
-            if task_data.get('task_type') == 'transcribe' and task_data.get('entry_key') == entry_key:
+            if task_data.get('task_type') == 'transcribe' and task_data.get('entry_key') == entry_key and task_data.get('status') == 'completed':
                 return True
     return False
 
@@ -336,7 +344,7 @@ def get_uploads(user_id):
     if transcripts:
         for entry_key, entry_data in transcripts.items():
             if not isinstance(entry_data, dict):
-                print(f"Warning: entry_data for key {entry_key} is not a dictionary.")
+                # print(f"Warning: entry_data for key {entry_key} is not a dictionary.")
                 continue
             # if 'transcript' not in entry_data:
             audio = entry_data.get('audio')
