@@ -49,6 +49,7 @@ def main(input: dict) -> str:
     try:
         subtitles_file = download_file_from_azure(subtitle_file_name, user_id)
     except Exception as e:
+        store_transaction_info(user_id, "refund", cost_in_cents, cost_in_cents+balance_in_cents)
         update_balance(reimburse_cents, user_sub)
         update_task_status(user_id, task_id, "download_failed", f"Download failed, user reimbursed.")
         logging.error('azure error: %s', e)
@@ -119,6 +120,7 @@ def main(input: dict) -> str:
         
 
     except Exception as e:
+        store_transaction_info(user_id, "refund", cost_in_cents, cost_in_cents+balance_in_cents)
         update_balance(reimburse_cents, user_sub)
         update_task_status(user_id, task_id, "translate_failed", f"Translate failed, user reimbursed.")
         logging.error('translation error: %s', str(e))

@@ -18,10 +18,15 @@ from datetime import timedelta
 import math
 
 from pydub import AudioSegment
+from pydub.utils import mediainfo
 
 
 nltk.download('punkt')
 
+def get_audio_duration(audio_file_path):
+    audio_info = mediainfo(audio_file_path)
+    duration = int(float(audio_info["duration"]))  # duration in seconds
+    return timedelta(seconds=duration)
 
 def adjust_srt(srt_text, last_end_time, last_index):
     subs = list(srt.parse(srt_text))
@@ -107,14 +112,26 @@ def main(input: dict) -> str:
             temp_audio_file.write(audio_blob.content_as_bytes())
             temp_audio_path = temp_audio_file.name
     except Exception as e:
+        store_transaction_info(user_id, "refund", cost_in_cents, cost_in_cents+balance_in_cents)
         update_balance(reimburse_cents, user_sub)
         update_task_status(user_id, task_id, "download_failed", f"Download failed, user reimbursed.")
         logging.error('azure error: %s', e)
         return json.dumps({entry_key: "download_failed"})
 
     try:
-        update_task_status(user_id, task_id, "chunking", "Chunking audio file")
-        chunks = split_audio(temp_audio_path)
+        audio_duration = get_audio_duration(temp_audio_path)
+        split_threshold = timedelta(minutes=50)
+        is_split = audio_duration > split_threshold
+
+        if is_split:
+            update_task_status(user_id, task_id, "chunking", "Chunking audio file")
+            chunks = split_audio(temp_audio_path)
+        else:
+            audio = AudioSegment.from_file(temp_audio_path, format="mp3")
+            chunks = [audio]
+        
+        # chunks = split_audio(temp_audio_path)
+
         last_end_time = timedelta(0)
         last_index = 1
         subtitles = []
@@ -123,8 +140,10 @@ def main(input: dict) -> str:
             with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as tmp_file:
                 try:
                     chunk.export(tmp_file.name, format="mp3", bitrate="64k")
-                    update_task_status(user_id, task_id, "transcribing", f"Transcribing audio chunk {i+1}/{len(chunks)}")
-                    
+                    if is_split:
+                        update_task_status(user_id, task_id, "transcribing", f"Transcribing audio chunk {i+1}/{len(chunks)}")
+                    else:
+                        update_task_status(user_id, task_id, "transcribing", f"Transcribing audio in file")
                     # size_in_bytes = os.path.getsize(tmp_file.name)
                     # logging.info(f"CHUNK SIZE: {size_in_bytes}")
 
@@ -158,6 +177,7 @@ def main(input: dict) -> str:
         os.remove(temp_audio_path)
         
     except Exception as e:
+        store_transaction_info(user_id, "refund", cost_in_cents, cost_in_cents+balance_in_cents)
         update_balance(reimburse_cents, user_sub)
         update_task_status(user_id, task_id, "transcribe_failed", f"Transcribe failed, user reimbursed.")
         logging.error('openAI error: %s', e)

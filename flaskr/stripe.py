@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify
 import stripe
 
-from flaskr.firebase import check_payment_intent_exists, get_transactions, store_payment_intent
+from flaskr.firebase import check_payment_intent_exists, get_transactions, store_payment_intent, store_transaction_info
 from .auth import getUserAppMetadata, require_auth, getUserID
 import os
 from dotenv import load_dotenv, find_dotenv
@@ -86,6 +86,7 @@ def validate_payment():
             new_balance = customer.balance + payment_intent.amount
             stripe.Customer.modify(stripe_customer_id, balance=new_balance)
             updated_customer = stripe.Customer.retrieve(stripe_customer_id)
+            store_transaction_info(user_id, "add_funds", payment_intent.amount, new_balance)
             return jsonify({'balance': 'Balance updated successfully! Your new balance is $' + str(updated_customer.balance / 100)})
         
         

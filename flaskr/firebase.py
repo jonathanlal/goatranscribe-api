@@ -266,7 +266,7 @@ def store_transaction_info(user_id, transaction_type, amount, new_balance):
     ref = db.reference(f'users/{user_id}/transactions')
     new_entry = ref.push()
     if transaction_type == "transcribe":
-        description = "Transcribe audio file"
+        description = "Transcribe file"
         is_cost = True
     elif transaction_type == "translate":
         description = "Translate transcript"
@@ -274,20 +274,25 @@ def store_transaction_info(user_id, transaction_type, amount, new_balance):
     elif transaction_type == "add_funds":
         description = "Add funds to wallet"
         is_cost = False
-    elif transaction_type == "summary":
+    elif transaction_type == "summarize":
         description = "Summary of transcript"
         is_cost = True
     elif transaction_type == "paragraph":
         description = "Generate paragraphs in transcript"
         is_cost = True
+    elif transaction_type == "refund":
+        description = "Something went wrong. Refunded."
+        is_cost = False
     else:
         description = "unknown type"
 
+    date_started = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     new_entry.set({
         "description": description,
         "amount": amount,
         "new_balance": new_balance,
-        "is_cost": is_cost
+        "is_cost": is_cost,
+        "date": date_started
     })
 
 def get_transactions(user_id):
@@ -301,10 +306,12 @@ def get_transactions(user_id):
                 print(f"Warning: transaction_data for key {transaction_key} is not a dictionary.")
                 continue
             all_transactions.append({
+                "id": transaction_key,
                 "description": transaction_data["description"],
-                "amount": transaction_data["amount"],
-                "new_balance": transaction_data["new_balance"],
+                "amount": transaction_data["amount"] / 100,
+                "new_balance": transaction_data["new_balance"] / 100,
                 "is_cost": transaction_data["is_cost"],
+                "date": transaction_data["date"],
             })
     return all_transactions
 

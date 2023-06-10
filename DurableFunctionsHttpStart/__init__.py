@@ -144,6 +144,7 @@ async def main(req: func.HttpRequest, starter: str) -> func.HttpResponse:
         
         new_balance = balance_in_cents - total_cost_in_cents
         stripe_balance = update_balance(new_balance, user_sub)
+        store_transaction_info(user_id, task_type, total_cost_in_cents, stripe_balance)
     
         # #this should never happen
         if(stripe_balance != new_balance):
