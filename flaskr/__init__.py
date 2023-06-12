@@ -20,10 +20,11 @@ def create_app(test_config=None):
         # load the test config if passed in
         app.config.from_mapping(test_config)
 
-    from . import auth, transcribe, transcribe_try, stripe
+    from . import auth, transcribe, transcribe_try, stripe, settings
     app.register_blueprint(auth.bp)
     app.register_blueprint(transcribe.bp)
     app.register_blueprint(transcribe_try.bp)
     app.register_blueprint(stripe.bp)
+    app.register_blueprint(settings.bp)
 
     return app

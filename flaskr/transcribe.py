@@ -215,14 +215,16 @@ def getCost(file_duration):
 
 # @bp.route("/test", methods=["GET"])
 # def test():
-#     entry_key = "NWruCdEWMHE2nJAnmE2"
-#     user_id = "google-oauth2107710671190499472104"
-#     encoded_file_name = get_encoded_file_name_from_asset(entry_key)
-#     asset_container_name = sanitize_container_name(entry_key)
-#     copy_encoded_asset_to_user_container(asset_container_name, encoded_file_name, f"{entry_key}.mp4", user_id)
+    # print(current_token)
+    # entry_key = "NWruCdEWMHE2nJAnmE2"
+    # user_id = "google-oauth2107710671190499472104"
+    # encoded_file_name = get_encoded_file_name_from_asset(entry_key)
+    # asset_container_name = sanitize_container_name(entry_key)
+    # copy_encoded_asset_to_user_container(asset_container_name, encoded_file_name, f"{entry_key}.mp4", user_id)
+    # test_send_email()
 
-#     # print(info)
-#     return jsonify('hello')
+    # print(info)
+    # return jsonify('hello')
 
 
 @bp.route("/tasks", methods=["POST"])

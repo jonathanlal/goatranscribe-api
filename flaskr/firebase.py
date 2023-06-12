@@ -380,3 +380,27 @@ def get_uploads(user_id):
                 # else:
                 #     continue
     return incomplete_uploads
+
+
+def seen_uploads_welcome(user_id):
+    ref = db.reference(f'users/{user_id}/settings')
+    ref.update({"uploads_welcome": True})
+
+def update_email_status(user_id, status, email_type):
+    ref = db.reference(f'users/{user_id}/settings')
+    ref.update({email_type: status})
+
+def get_user_settings(user_id):
+    ref = db.reference(f'users/{user_id}/settings')
+    settings = ref.get()
+    if settings is None:
+        settings = {}
+    if "uploads_welcome" not in settings:
+        settings["uploads_welcome"] = False
+    if "email_transcripts" not in settings:
+        settings["email_transcripts"] = False
+    if "email_promotional" not in settings:
+        ref.update({"email_promotional": True})
+        settings["email_promotional"] = True
+
+    return settings

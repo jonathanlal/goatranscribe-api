@@ -1,18 +1,19 @@
-import asyncio
 import json
 import logging
 import math
 import os
 import tempfile
 import time
+from flaskr.auth import getUserEmail
+from flaskr.email import send_transcript_complete_email
 import srt
 import nltk
 from nltk.tokenize import word_tokenize
 
-from flaskr.azure import authenticate_media_client, copy_encoded_asset_to_user_container, delete_asset, delete_container, detect_language, download_file_from_azure, download_file_from_container, encode_audio_to_mp3, get_encoded_file_name_from_asset, getBlobUrl, process_audio, sanitize_container_name, upload_file_to_azure, upload_file_to_container, upload_file_to_media_service
+from flaskr.azure import detect_language, download_file_from_azure, upload_file_to_container
 from flaskr.firebase import COST_PER_SECOND, create_task_entry_key, get_audio_info, store_file_info, store_transaction_info, update_audio_lang, update_audio_status, update_task_status
 from flaskr.stripe import get_balance, update_balance
-from flaskr.transcribe import extract_text_from_srt, subtitle_to_dict, transcribe_audio
+from flaskr.transcribe import extract_text_from_srt, transcribe_audio
 import datetime
 from datetime import timedelta
 import math
@@ -59,6 +60,7 @@ def main(input: dict) -> str:
     user_id = input["user_id"]
     user_sub = input["user_sub"]
     entry_key = input["entry_key"]
+    email_on_finish = input["email_on_finish"]
 
     transcript_file_name = f"{entry_key}.txt"
     # transcript_file_name = f"transcript/{entry_key}.txt"
@@ -222,6 +224,11 @@ def main(input: dict) -> str:
     #any cleanup here (llike maybe delete the audio file from azure?)
 
     #send email or push notification to user that transcription is complete
+
+    if email_on_finish:
+        user_email = getUserEmail(user_sub)
+        send_transcript_complete_email(entry_key, user_email, audio_info["file_name"])
+
 
     end_time = datetime.datetime.now()
     time_taken = (end_time - start_time).total_seconds()

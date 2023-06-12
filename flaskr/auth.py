@@ -57,6 +57,10 @@ def getUserAppMetadata(user_sub):
     auth0 = getAuth0Client()
     return auth0.users.get(user_sub)['app_metadata']
 
+def getUserEmail(user_sub):
+    auth0 = getAuth0Client()
+    return auth0.users.get(user_sub)['email']
+
 # @bp.route("/refresh_token", methods=["POST"])
 # def refresh_token():
 #     client_id = env.get("AUTH0_CLIENT_ID")

@@ -64,7 +64,6 @@ def update_balance(new_balance_cents, user_sub):
 @require_auth(None)
 def get_customer_balance():
     balance = get_balance(current_token.get('sub'))
-    print(balance)
     return jsonify({'balance': balance / 100})
 
 

@@ -19,7 +19,7 @@ import json
 import os
 import requests
 
-from flaskr.firebase import COST_PER_CHARACTER, COST_PER_SECOND, check_already_transcribed, get_audio_info, get_transcript_info, store_transaction_info
+from flaskr.firebase import COST_PER_CHARACTER, COST_PER_SECOND, check_already_transcribed, get_audio_info, get_transcript_info, get_user_settings, store_transaction_info
 from flaskr.stripe import get_balance, update_balance
 
 
@@ -91,6 +91,9 @@ async def main(req: func.HttpRequest, starter: str) -> func.HttpResponse:
     task_type = data["task_type"]
     if task_type == "transcribe":
         # for each entry get cost
+        settings = get_user_settings(user_id)
+        email_on_finish = settings.get("email_transcripts", False)
+        data["email_on_finish"] = email_on_finish
         non_transcribed_keys = []
         for entry_key in data['entryKeys']:
             already_transcribed = check_already_transcribed(user_id, entry_key)
