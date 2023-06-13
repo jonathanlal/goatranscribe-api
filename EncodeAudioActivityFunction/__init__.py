@@ -7,6 +7,12 @@ import ffmpeg
 import os
 import tempfile
 
+FFMPEG_LIB_PATH = "../ffmpeg_lib"
+
+# Set the path to the ffmpeg and ffprobe binaries
+ffmpeg._run.DEFAULT_FFMPEG_PATH = os.path.join(FFMPEG_LIB_PATH, "ffmpeg")
+ffmpeg._run.DEFAULT_FFPROBE_PATH = os.path.join(FFMPEG_LIB_PATH, "ffprobe")
+
 def read_file_as_bytes(file_path):
     with open(file_path, 'rb') as file:
         return file.read()
