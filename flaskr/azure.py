@@ -1,31 +1,15 @@
-import asyncio
-import logging
-import time
-from urllib.parse import urlparse
 from authlib.integrations.flask_oauth2 import current_token
 from azure.storage.blob import BlobServiceClient, ContainerSasPermissions, generate_container_sas, generate_blob_sas, BlobSasPermissions
 from flaskr.auth import getUserID
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from os import environ as env
-import os
 
 # language detection from text
 from azure.ai.textanalytics import TextAnalyticsClient
 from azure.core.credentials import AzureKeyCredential
 from azure.ai.translation.document import DocumentTranslationClient
 
-from azure.identity import ClientSecretCredential
-from azure.mgmt.media import AzureMediaServices
-from azure.mgmt.media.models import (
-    Job,
-    JobInputHttp,
-    JobOutputAsset,
-    TransformOutput,
-    BuiltInStandardEncoderPreset,
-    EncoderNamedPreset,
-    ListContainerSasInput,
-    Asset,
-    Transform)
+
 
 #THIS RETURNS CDN URL which apparently does not work with sas for the storage? 
 # def getBlobUrl(container_name, blob_name, user_id=None):
@@ -201,70 +185,70 @@ def translate_docs(target_language, sourceUrl, targetUrl):
         raise
 
 
-def authenticate_media_client():
-    # Tenant ID for your Azure Subscription
-    TENANT_ID = env.get("AZURE_MEDIA_SERVICE_TENANT_ID")
-    # Your Application Client ID of your Service Principal
-    CLIENT_ID = env.get("AZURE_MEDIA_SERVICE_CLIENT_ID")
-    # Your Service Principal secret key
-    CLIENT_SECRET = env.get("AZURE_MEDIA_SERVICE_CLIENT_SECRET")
-    # Your Azure Subscription ID
-    SUBSCRIPTION_ID = env.get("AZURE_MEDIA_SERVICE_SUBSCRIPTION_ID")
-    credentials = ClientSecretCredential(TENANT_ID, CLIENT_ID, CLIENT_SECRET)
-    client = AzureMediaServices(credentials, SUBSCRIPTION_ID)
-    return client
+# def authenticate_media_client():
+#     # Tenant ID for your Azure Subscription
+#     TENANT_ID = env.get("AZURE_MEDIA_SERVICE_TENANT_ID")
+#     # Your Application Client ID of your Service Principal
+#     CLIENT_ID = env.get("AZURE_MEDIA_SERVICE_CLIENT_ID")
+#     # Your Service Principal secret key
+#     CLIENT_SECRET = env.get("AZURE_MEDIA_SERVICE_CLIENT_SECRET")
+#     # Your Azure Subscription ID
+#     SUBSCRIPTION_ID = env.get("AZURE_MEDIA_SERVICE_SUBSCRIPTION_ID")
+#     credentials = ClientSecretCredential(TENANT_ID, CLIENT_ID, CLIENT_SECRET)
+#     client = AzureMediaServices(credentials, SUBSCRIPTION_ID)
+#     return client
 
-async def process_audio(input_url, output_asset_name, job_name, task_id, user_id, task_status_callback, audio_progress_callback, entry_key, update_audio_status_callback):
-    job_id = encode_audio_to_mp3(input_url, output_asset_name, job_name)
-    await wait_for_job_to_finish("AudioEncodingTransform", job_id, task_id, user_id, task_status_callback, audio_progress_callback, entry_key, update_audio_status_callback)
+# async def process_audio(input_url, output_asset_name, job_name, task_id, user_id, task_status_callback, audio_progress_callback, entry_key, update_audio_status_callback):
+#     job_id = encode_audio_to_mp3(input_url, output_asset_name, job_name)
+#     await wait_for_job_to_finish("AudioEncodingTransform", job_id, task_id, user_id, task_status_callback, audio_progress_callback, entry_key, update_audio_status_callback)
 
-def encode_audio_to_mp3(input_url, output_asset_name, job_name):
-    # The name of the transform
-    transform_name = "AudioEncodingTransform"
+# def encode_audio_to_mp3(input_url, output_asset_name, job_name):
+#     # The name of the transform
+#     transform_name = "AudioEncodingTransform"
 
-    # Use the "AAC Good Quality Audio" preset
-    # preset = BuiltInStandardEncoderPreset(preset_name=EncoderNamedPreset.DD_GOOD_QUALITY_AUDIO)
-    preset = BuiltInStandardEncoderPreset(preset_name=EncoderNamedPreset.AAC_GOOD_QUALITY_AUDIO)
+#     # Use the "AAC Good Quality Audio" preset
+#     # preset = BuiltInStandardEncoderPreset(preset_name=EncoderNamedPreset.DD_GOOD_QUALITY_AUDIO)
+#     preset = BuiltInStandardEncoderPreset(preset_name=EncoderNamedPreset.AAC_GOOD_QUALITY_AUDIO)
 
-    transform_output = TransformOutput(preset=preset)
+#     transform_output = TransformOutput(preset=preset)
 
-    client = authenticate_media_client()
-    RESOURCE_GROUP_NAME = env.get("AZURE_MEDIA_SERVICE_RESOURCE_GROUP")
-    ACCOUNT_NAME = env.get("AZURE_MEDIA_SERVICES_ACCOUNT_NAME")
+#     client = authenticate_media_client()
+#     RESOURCE_GROUP_NAME = env.get("AZURE_MEDIA_SERVICE_RESOURCE_GROUP")
+#     ACCOUNT_NAME = env.get("AZURE_MEDIA_SERVICES_ACCOUNT_NAME")
 
-    # Check if the transform exists, and create a new one if it doesn't
-    # transform = client.transforms.get(RESOURCE_GROUP_NAME, ACCOUNT_NAME, transform_name)
-    # transform = Transform(outputs=[transform_output])
+#     # Check if the transform exists, and create a new one if it doesn't
+#     # transform = client.transforms.get(RESOURCE_GROUP_NAME, ACCOUNT_NAME, transform_name)
+#     # transform = Transform(outputs=[transform_output])
 
-    # if transform is None:
-    transform = client.transforms.create_or_update(
-        RESOURCE_GROUP_NAME,
-        ACCOUNT_NAME,
-        transform_name,
-        Transform(outputs=[transform_output])
-    )
+#     # if transform is None:
+#     transform = client.transforms.create_or_update(
+#         RESOURCE_GROUP_NAME,
+#         ACCOUNT_NAME,
+#         transform_name,
+#         Transform(outputs=[transform_output])
+#     )
 
-    # Create the job input
-    job_input = JobInputHttp(files=[input_url])
+#     # Create the job input
+#     job_input = JobInputHttp(files=[input_url])
 
-    # Create the job output
-    # job_output = JobOutputAsset(asset_name=output_asset_name)
-    job_outputs = [JobOutputAsset(asset_name=output_asset_name)]
+#     # Create the job output
+#     # job_output = JobOutputAsset(asset_name=output_asset_name)
+#     job_outputs = [JobOutputAsset(asset_name=output_asset_name)]
 
-    # Create the job
-    # job_name = "EncodingJob"
-    job = Job(input=job_input, outputs=job_outputs)
+#     # Create the job
+#     # job_name = "EncodingJob"
+#     job = Job(input=job_input, outputs=job_outputs)
 
-    # Submit the job
-    job = client.jobs.create(
-        RESOURCE_GROUP_NAME,
-        ACCOUNT_NAME,
-        transform_name,
-        job_name,
-        job
-    )
+#     # Submit the job
+#     job = client.jobs.create(
+#         RESOURCE_GROUP_NAME,
+#         ACCOUNT_NAME,
+#         transform_name,
+#         job_name,
+#         job
+#     )
     
-    return job_name
+#     return job_name
 
 # def get_asset_by_name(asset_name):
 #     # Get the asset
@@ -275,89 +259,89 @@ def encode_audio_to_mp3(input_url, output_asset_name, job_name):
 #     return asset
 
 
-def copy_encoded_asset_to_user_container(src_container_name, src_blob_name, dest_blob_name, user_id):
+# def copy_encoded_asset_to_user_container(src_container_name, src_blob_name, dest_blob_name, user_id):
 
-    asset_blob_service_client = BlobServiceClient.from_connection_string(env.get("AZURE_STORAGE_CONNECTION_STRING"))
-    source_blob = asset_blob_service_client.get_blob_client(src_container_name, src_blob_name)
+#     asset_blob_service_client = BlobServiceClient.from_connection_string(env.get("AZURE_STORAGE_CONNECTION_STRING"))
+#     source_blob = asset_blob_service_client.get_blob_client(src_container_name, src_blob_name)
 
-    source_blob_url = source_blob.url
+#     source_blob_url = source_blob.url
 
-    clients = get_container_client(user_id)
-    blob_service_client = clients["blob_service_client"]
+#     clients = get_container_client(user_id)
+#     blob_service_client = clients["blob_service_client"]
 
-    dest_blob = blob_service_client.get_blob_client(f"{user_id}/encoded", dest_blob_name)
-    copy_status = dest_blob.start_copy_from_url(source_blob_url)
-    # Poll for copy status until the copy completes or fails
-    while True:
-        try:
-            # Get the copy status
-            copy_props = dest_blob.get_blob_properties().copy
-            copy_status = copy_props.status
+#     dest_blob = blob_service_client.get_blob_client(f"{user_id}/encoded", dest_blob_name)
+#     copy_status = dest_blob.start_copy_from_url(source_blob_url)
+#     # Poll for copy status until the copy completes or fails
+#     while True:
+#         try:
+#             # Get the copy status
+#             copy_props = dest_blob.get_blob_properties().copy
+#             copy_status = copy_props.status
 
-            # If the copy operation completed or failed, break out of the loop
-            if copy_status in ['success', 'failed']:
-                break
-            else:
-                # If the copy operation is still pending, wait a bit and then check the status again
-                time.sleep(1)
+#             # If the copy operation completed or failed, break out of the loop
+#             if copy_status in ['success', 'failed']:
+#                 break
+#             else:
+#                 # If the copy operation is still pending, wait a bit and then check the status again
+#                 time.sleep(1)
 
-        except Exception as e:
-            # If the blob isn't found, the copy operation failed
-            break
+#         except Exception as e:
+#             # If the blob isn't found, the copy operation failed
+#             break
 
-    # Return the final copy status
-    return copy_status
-
-
-def get_encoded_file_name_from_asset(asset_name):
-    client = authenticate_media_client()
-    RESOURCE_GROUP_NAME = env.get("AZURE_MEDIA_SERVICE_RESOURCE_GROUP")
-    ACCOUNT_NAME = env.get("AZURE_MEDIA_SERVICES_ACCOUNT_NAME")
-    tracks = client.tracks.list(RESOURCE_GROUP_NAME, ACCOUNT_NAME, asset_name)
-    for track in tracks:
-        if '.mp4' in track.name:  # Assumes that the encoded track contains 'AACAudio' in the name
-            return track.name
-    return None 
-
-def delete_asset(asset_name):
-    client = authenticate_media_client()
-    RESOURCE_GROUP_NAME = env.get("AZURE_MEDIA_SERVICE_RESOURCE_GROUP")
-    ACCOUNT_NAME = env.get("AZURE_MEDIA_SERVICES_ACCOUNT_NAME")
-
-    client.assets.delete(RESOURCE_GROUP_NAME, ACCOUNT_NAME, asset_name)
+#     # Return the final copy status
+#     return copy_status
 
 
-async def wait_for_job_to_finish(transform_name, job_id, task_id, user_id, task_status_callback, audio_progress_callback, entry_key, update_audio_status_callback):
-    timeout = datetime.now(timezone.utc)
-    # Timer values
-    timeout_seconds = 60 * 10
-    sleep_interval = 2
+# def get_encoded_file_name_from_asset(asset_name):
+#     client = authenticate_media_client()
+#     RESOURCE_GROUP_NAME = env.get("AZURE_MEDIA_SERVICE_RESOURCE_GROUP")
+#     ACCOUNT_NAME = env.get("AZURE_MEDIA_SERVICES_ACCOUNT_NAME")
+#     tracks = client.tracks.list(RESOURCE_GROUP_NAME, ACCOUNT_NAME, asset_name)
+#     for track in tracks:
+#         if '.mp4' in track.name:  # Assumes that the encoded track contains 'AACAudio' in the name
+#             return track.name
+#     return None 
 
-    timeout += timedelta(seconds=timeout_seconds)
-    client = authenticate_media_client()
-    RESOURCE_GROUP_NAME = env.get("AZURE_MEDIA_SERVICE_RESOURCE_GROUP")
-    ACCOUNT_NAME = env.get("AZURE_MEDIA_SERVICES_ACCOUNT_NAME")
-    async def poll_for_job_status():
-        job = client.jobs.get(RESOURCE_GROUP_NAME, ACCOUNT_NAME, transform_name, job_id)
+# def delete_asset(asset_name):
+#     client = authenticate_media_client()
+#     RESOURCE_GROUP_NAME = env.get("AZURE_MEDIA_SERVICE_RESOURCE_GROUP")
+#     ACCOUNT_NAME = env.get("AZURE_MEDIA_SERVICES_ACCOUNT_NAME")
+
+#     client.assets.delete(RESOURCE_GROUP_NAME, ACCOUNT_NAME, asset_name)
+
+
+# async def wait_for_job_to_finish(transform_name, job_id, task_id, user_id, task_status_callback, audio_progress_callback, entry_key, update_audio_status_callback):
+#     timeout = datetime.now(timezone.utc)
+#     # Timer values
+#     timeout_seconds = 60 * 10
+#     sleep_interval = 2
+
+#     timeout += timedelta(seconds=timeout_seconds)
+#     client = authenticate_media_client()
+#     RESOURCE_GROUP_NAME = env.get("AZURE_MEDIA_SERVICE_RESOURCE_GROUP")
+#     ACCOUNT_NAME = env.get("AZURE_MEDIA_SERVICES_ACCOUNT_NAME")
+#     async def poll_for_job_status():
+#         job = client.jobs.get(RESOURCE_GROUP_NAME, ACCOUNT_NAME, transform_name, job_id)
         
-        # Note that you can report the progress for each Job Output if you have more than one. In this case, we only have one output in the Transform
-        # that we defined in this sample, so we can check that with the job.outputs[0].progress parameter.
-        if job.outputs != None:
-            # print(f"Job.outputs[0] is: {job.outputs[0]}")
-            # print(f"Job State is: {job.state}, \tProgress: {}%")
-            progress = job.outputs[0].progress
-            task_status_callback(user_id, task_id, "encoding_file", f"Encoding audio file {progress}%")
-            audio_progress_callback(user_id, entry_key, progress)
-            update_audio_status_callback(user_id, entry_key, f"Encoding {progress}%")
-        if job.state == 'Finished' or job.state == 'Error' or job.state == 'Canceled':
-            return job
-        elif datetime.now(timezone.utc) > timeout:
-            return job
-        else:
-            await asyncio.sleep(sleep_interval)
-            return await poll_for_job_status()
+#         # Note that you can report the progress for each Job Output if you have more than one. In this case, we only have one output in the Transform
+#         # that we defined in this sample, so we can check that with the job.outputs[0].progress parameter.
+#         if job.outputs != None:
+#             # print(f"Job.outputs[0] is: {job.outputs[0]}")
+#             # print(f"Job State is: {job.state}, \tProgress: {}%")
+#             progress = job.outputs[0].progress
+#             task_status_callback(user_id, task_id, "encoding_file", f"Encoding audio file {progress}%")
+#             audio_progress_callback(user_id, entry_key, progress)
+#             update_audio_status_callback(user_id, entry_key, f"Encoding {progress}%")
+#         if job.state == 'Finished' or job.state == 'Error' or job.state == 'Canceled':
+#             return job
+#         elif datetime.now(timezone.utc) > timeout:
+#             return job
+#         else:
+#             await asyncio.sleep(sleep_interval)
+#             return await poll_for_job_status()
 
-    return await poll_for_job_status()
+#     return await poll_for_job_status()
 
 # def upload_file_to_azure(blob_name, data, user_id=None, metadata=None):
 #     blob_client = get_blob_client(blob_name, user_id)
@@ -384,53 +368,53 @@ def sanitize_container_name(entry_id):
     return sanitized_name
 
 
-def create_media_service_asset(asset_name):
-    client = authenticate_media_client()
-    RESOURCE_GROUP_NAME = env.get("AZURE_MEDIA_SERVICE_RESOURCE_GROUP")
-    ACCOUNT_NAME = env.get("AZURE_MEDIA_SERVICES_ACCOUNT_NAME")
-    sanitized_name = sanitize_container_name(asset_name)
-    assetObj = Asset(container=sanitized_name)
-    thisAsset = client.assets.create_or_update(ACCOUNT_NAME, RESOURCE_GROUP_NAME, asset_name, assetObj)
-    return thisAsset
+# def create_media_service_asset(asset_name):
+#     client = authenticate_media_client()
+#     RESOURCE_GROUP_NAME = env.get("AZURE_MEDIA_SERVICE_RESOURCE_GROUP")
+#     ACCOUNT_NAME = env.get("AZURE_MEDIA_SERVICES_ACCOUNT_NAME")
+#     sanitized_name = sanitize_container_name(asset_name)
+#     assetObj = Asset(container=sanitized_name)
+#     thisAsset = client.assets.create_or_update(ACCOUNT_NAME, RESOURCE_GROUP_NAME, asset_name, assetObj)
+#     return thisAsset
 
-async def upload_file_to_media_service(asset_name, input_data):
-# Set permissions for SAS URL and expiry time (for the sample, we used expiry time to be 1 additional hours from current time)
-    print("Setting permissions for SAS URL and expiry time.")
-    # Make sure that the expiry time is far enough in the future that you can keep using it until you are done testing.
-    input = ListContainerSasInput(permissions="ReadWrite", expiry_time=datetime.now(timezone.utc)+timedelta(hours=24))
-    print("Listing the container sas.")
-    client = authenticate_media_client()
-    RESOURCE_GROUP_NAME = env.get("AZURE_MEDIA_SERVICE_RESOURCE_GROUP")
-    ACCOUNT_NAME = env.get("AZURE_MEDIA_SERVICES_ACCOUNT_NAME")
-    list_container_sas = await client.assets.list_container_sas(RESOURCE_GROUP_NAME, ACCOUNT_NAME, asset_name, parameters=input)
-    if list_container_sas.asset_container_sas_urls:
-        upload_sas_url = list_container_sas.asset_container_sas_urls[0]
-        # file_name = os.path.basename(input_file)
-        sas_uri = urlparse(upload_sas_url)
+# async def upload_file_to_media_service(asset_name, input_data):
+# # Set permissions for SAS URL and expiry time (for the sample, we used expiry time to be 1 additional hours from current time)
+#     print("Setting permissions for SAS URL and expiry time.")
+#     # Make sure that the expiry time is far enough in the future that you can keep using it until you are done testing.
+#     input = ListContainerSasInput(permissions="ReadWrite", expiry_time=datetime.now(timezone.utc)+timedelta(hours=24))
+#     print("Listing the container sas.")
+#     client = authenticate_media_client()
+#     RESOURCE_GROUP_NAME = env.get("AZURE_MEDIA_SERVICE_RESOURCE_GROUP")
+#     ACCOUNT_NAME = env.get("AZURE_MEDIA_SERVICES_ACCOUNT_NAME")
+#     list_container_sas = await client.assets.list_container_sas(RESOURCE_GROUP_NAME, ACCOUNT_NAME, asset_name, parameters=input)
+#     if list_container_sas.asset_container_sas_urls:
+#         upload_sas_url = list_container_sas.asset_container_sas_urls[0]
+#         # file_name = os.path.basename(input_file)
+#         sas_uri = urlparse(upload_sas_url)
 
-        # Get the Blob service client using the Asset's SAS URL
-        blob_service_client = BlobServiceClient(upload_sas_url)
-        # We need to get the container_name here from the SAS URL path to use later when creating the container client
-        # Change the path to the container so that it doesn't make "subdirectories"
-        # no_slash = sas_uri.path.replace("/","../")
-        # container_name = no_slash
-        # print(f"Container name: ", container_name)
-        container_client = blob_service_client.get_container_client(container_name)
-        # Next, get the block_blob_client needed to use the uploadFile method
-        blob_client = container_client.get_blob_client(asset_name)
-        # print(f"Block blob client: ", blob_client)
+#         # Get the Blob service client using the Asset's SAS URL
+#         blob_service_client = BlobServiceClient(upload_sas_url)
+#         # We need to get the container_name here from the SAS URL path to use later when creating the container client
+#         # Change the path to the container so that it doesn't make "subdirectories"
+#         # no_slash = sas_uri.path.replace("/","../")
+#         # container_name = no_slash
+#         # print(f"Container name: ", container_name)
+#         container_client = blob_service_client.get_container_client(container_name)
+#         # Next, get the block_blob_client needed to use the uploadFile method
+#         blob_client = container_client.get_blob_client(asset_name)
+#         # print(f"Block blob client: ", blob_client)
 
-        print(f"Uploading file named {asset_name} to blob in the Asset's container...")
-        print("Uploading blob...")
-        # file_path = media_folder + file_name
-        # print("Video is located in " + file_path)
-        # with open(file_path, "rb") as data:
-        await blob_client.upload_blob(input_data, max_concurrency=5)
-        print(f"File {asset_name} successfully uploaded!")
+#         print(f"Uploading file named {asset_name} to blob in the Asset's container...")
+#         print("Uploading blob...")
+#         # file_path = media_folder + file_name
+#         # print("Video is located in " + file_path)
+#         # with open(file_path, "rb") as data:
+#         await blob_client.upload_blob(input_data, max_concurrency=5)
+#         print(f"File {asset_name} successfully uploaded!")
 
-    print("Closing Blob service client")
-    print()
-    await blob_service_client.close()
+#     print("Closing Blob service client")
+#     print()
+#     await blob_service_client.close()
 
 # async def download_result(asset_name, results_folder):
 #     input = ListContainerSasInput(permissions="Read", expiry_time=datetime.now(timezone.utc)+timedelta(hours=24))

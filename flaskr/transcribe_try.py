@@ -3,9 +3,7 @@ import openai
 from os import environ as env
 import os
 import srt
-from azure.storage.blob import BlobServiceClient
 from flaskr.firebase import create_entry_key, store_file_info
-from firebase_admin import db
 from flaskr.azure import download_file_from_azure, get_blob_client, get_container_sas, get_container_client, upload_file_to_azure
 import tempfile
 import nltk

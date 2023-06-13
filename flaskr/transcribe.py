@@ -7,19 +7,15 @@ import requests
 from .auth import require_auth, getUserID
 from os import environ as env
 import os
-import srt
-from azure.storage.blob import BlobServiceClient
-from flaskr.firebase import COST_PER_SECOND, create_custom_token, create_entry_key, get_audio_info, get_entry, get_entry_by_id, get_tasks, get_transcript_time_taken, get_uploads, mark_task_as_seen, mark_tasks_as_seen, store_file_info
+from flaskr.firebase import COST_PER_SECOND, create_custom_token, create_entry_key, get_entry, get_tasks, get_uploads, mark_task_as_seen, mark_tasks_as_seen, store_file_info
 from firebase_admin import db
-from flaskr.azure import copy_encoded_asset_to_user_container, create_media_service_asset, download_file_from_azure, file_exists_azure, get_blob_client, get_blob_sas, get_container_sas, get_encoded_file_name_from_asset, getBlobUrl, sanitize_container_name, upload_file_to_azure
-from pydub import AudioSegment
-import tempfile
-import nltk
-from nltk.tokenize import word_tokenize
+from flaskr.azure import download_file_from_azure, get_container_sas, getBlobUrl
+# import tempfile
+# import nltk
 
 
 
-nltk.download('punkt')
+# nltk.download('punkt')
 
 bp = Blueprint("transcribe", __name__)
 

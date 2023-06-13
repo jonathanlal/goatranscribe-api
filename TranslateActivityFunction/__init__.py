@@ -9,15 +9,12 @@
 import json
 import logging
 import math
-import os
-import tempfile
-import time
 import srt
 
-from flaskr.azure import create_container_and_sas, delete_container, detect_language, download_file_from_azure, download_file_from_container, get_blob_sas_test, translate_docs, upload_file_to_azure, upload_file_to_container
-from flaskr.firebase import COST_PER_CHARACTER, COST_PER_SECOND, create_task_entry_key, get_audio_info, get_transcript_info, store_file_info, store_subtitles_translation_info, store_transaction_info, store_transcript_translation_info, update_audio_lang, update_audio_status, update_task_status, update_transcript_translations
+from flaskr.azure import create_container_and_sas, delete_container, download_file_from_azure, download_file_from_container, translate_docs, upload_file_to_azure, upload_file_to_container
+from flaskr.firebase import COST_PER_CHARACTER, create_task_entry_key, get_transcript_info, store_subtitles_translation_info, store_transaction_info, store_transcript_translation_info, update_task_status, update_transcript_translations
 from flaskr.stripe import get_balance, update_balance
-from flaskr.transcribe import extract_text_from_srt, subtitle_to_dict, transcribe_audio
+from flaskr.transcribe import extract_text_from_srt
 import datetime
 import math
 

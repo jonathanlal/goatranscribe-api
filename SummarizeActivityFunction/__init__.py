@@ -2,7 +2,7 @@ import datetime
 import json
 import logging
 import math
-from flaskr.azure import download_file_from_azure, download_file_from_container, upload_file_to_azure
+from flaskr.azure import download_file_from_azure, upload_file_to_azure
 
 from flaskr.firebase import COST_PER_CHARACTER, create_task_entry_key, get_audio_info, get_transcript_info, store_transaction_info, update_summary_status, update_task_status
 from flaskr.stripe import get_balance, update_balance
