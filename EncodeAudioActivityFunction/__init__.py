@@ -9,30 +9,22 @@ import ffmpeg
 import os
 import tempfile
 
-FFMPEG_LIB_PATH = "../ffmpeg_lib"
+# FFMPEG_LIB_PATH = "../ffmpeg_lib"
+FFMPEG_BIN_PATH = "../ffmpeg_lib/ffmpeg"  # Update this to your actual path
 
 
-
-def read_file_as_bytes(file_path):
-    with open(file_path, 'rb') as file:
-        return file.read()
-    
-def extract_encode_audio(input_file, output_file):
-    try:
-        # Extract audio
-        ffmpeg.input(input_file).output(output_file, format='mp3', audio_bitrate='64k').run(capture_stdout=True, capture_stderr=True)
-        return output_file
-    except ffmpeg.Error as e:
-        print('Error during audio extraction:', e)
-        return None
-    
 
 def main(context: Context, input: str) -> str:
 
+    ABSOLUTE_FFMPEG_BIN_PATH = os.path.join(str(context.function_directory), FFMPEG_BIN_PATH)
+
+    ffmpeg._run.ffmpeg_cmd = ABSOLUTE_FFMPEG_BIN_PATH
+
+
     # Set the path to the ffmpeg and ffprobe binaries
-    function_directory = context.function_directory
-    ffmpeg._run.DEFAULT_FFMPEG_PATH = os.path.join(function_directory, FFMPEG_LIB_PATH, "ffmpeg")
-    ffmpeg._run.DEFAULT_FFPROBE_PATH = os.path.join(function_directory, FFMPEG_LIB_PATH, "ffprobe")
+    # function_directory = context.function_directory
+    # ffmpeg._run.DEFAULT_FFMPEG_PATH = os.path.join(function_directory, FFMPEG_LIB_PATH, "ffmpeg")
+    # ffmpeg._run.DEFAULT_FFPROBE_PATH = os.path.join(function_directory, FFMPEG_LIB_PATH, "ffprobe")
 
 
     user_id = input["user_id"]
@@ -72,3 +64,17 @@ def main(context: Context, input: str) -> str:
     # update_audio_status(user_id, entry_key, "Ready")
 
     return json.dumps({entry_key: "encoded_complete"})
+
+
+def read_file_as_bytes(file_path):
+    with open(file_path, 'rb') as file:
+        return file.read()
+    
+def extract_encode_audio(input_file, output_file):
+    try:
+        # Extract audio
+        ffmpeg.input(input_file).output(output_file, format='mp3', audio_bitrate='64k').run(capture_stdout=True, capture_stderr=True)
+        return output_file
+    except ffmpeg.Error as e:
+        print('Error during audio extraction:', e)
+        return None
