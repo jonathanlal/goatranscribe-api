@@ -17,6 +17,7 @@ FFMPEG_BIN_PATH = "../ffmpeg_lib/ffmpeg"  # Update this to your actual path
 def main(context: Context, input: str) -> str:
 
     ABSOLUTE_FFMPEG_BIN_PATH = os.path.join(str(context.function_directory), FFMPEG_BIN_PATH)
+    logging.info(f"Absolute path to ffmpeg binary: {ABSOLUTE_FFMPEG_BIN_PATH}")
 
     ffmpeg._run.ffmpeg_cmd = ABSOLUTE_FFMPEG_BIN_PATH
 
