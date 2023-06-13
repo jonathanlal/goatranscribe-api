@@ -1,6 +1,8 @@
 import json
 import logging
 
+from azure.functions import Context
+
 from flaskr.azure import download_file_from_azure, upload_file_to_container
 from flaskr.firebase import create_task_entry_key, get_audio_info, update_audio_encoded, update_task_status
 import ffmpeg
@@ -9,9 +11,7 @@ import tempfile
 
 FFMPEG_LIB_PATH = "../ffmpeg_lib"
 
-# Set the path to the ffmpeg and ffprobe binaries
-ffmpeg._run.DEFAULT_FFMPEG_PATH = os.path.join(FFMPEG_LIB_PATH, "ffmpeg")
-ffmpeg._run.DEFAULT_FFPROBE_PATH = os.path.join(FFMPEG_LIB_PATH, "ffprobe")
+
 
 def read_file_as_bytes(file_path):
     with open(file_path, 'rb') as file:
@@ -27,7 +27,14 @@ def extract_encode_audio(input_file, output_file):
         return None
     
 
-def main(input: str) -> str:
+def main(context: Context, input: str) -> str:
+
+    # Set the path to the ffmpeg and ffprobe binaries
+    function_directory = context.function_directory
+    ffmpeg._run.DEFAULT_FFMPEG_PATH = os.path.join(function_directory, FFMPEG_LIB_PATH, "ffmpeg")
+    ffmpeg._run.DEFAULT_FFPROBE_PATH = os.path.join(function_directory, FFMPEG_LIB_PATH, "ffprobe")
+
+
     user_id = input["user_id"]
     entry_key = input["entry_key"]
 
