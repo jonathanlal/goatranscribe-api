@@ -95,13 +95,18 @@ def read_file_as_bytes(file_path):
         return file.read()
     
 def extract_encode_audio(input_file, output_file, ffmpeg_path):
+    # try:
+    #     # Extract audio
+    #     # ffmpeg.input(input_file).output(output_file, format='mp3', audio_bitrate='64k').run(capture_stdout=True, capture_stderr=True)
+    #     # subprocess.check_output([ffmpeg_path, '-i', input_file, '-b:a', '64k', output_file])
+    #     subprocess.check_output([ffmpeg_path, '-i', input_file, '-vn', '-ar', '44100', '-ac', '2', '-b:a', '64k', output_file])
+    #     return output_file
+    # # except ffmpeg.Error as e:
+    # except Exception as e:
+    #     logging.info('Error during audio extraction %s', e)
+    #     return None
     try:
-        # Extract audio
-        # ffmpeg.input(input_file).output(output_file, format='mp3', audio_bitrate='64k').run(capture_stdout=True, capture_stderr=True)
-        # subprocess.check_output([ffmpeg_path, '-i', input_file, '-b:a', '64k', output_file])
-        subprocess.check_output([ffmpeg_path, '-i', input_file, '-vn', '-ar', '44100', '-ac', '2', '-b:a', '64k', output_file])
-        return output_file
-    # except ffmpeg.Error as e:
-    except Exception as e:
-        logging.info('Error during audio extraction %s', e)
+        subprocess.check_output([ffmpeg_path, '-i', input_file, '-vn', '-ar', '44100', '-ac', '2', '-b:a', '64k', output_file], stderr=subprocess.STDOUT)
+    except subprocess.CalledProcessError as e:
+        logging.info(f'Error during audio extraction: {e.output.decode()}')
         return None
