@@ -1,7 +1,6 @@
 import json
 import logging
 
-from azure.storage.fileshare import ShareFileClient
 import subprocess
 import azure.functions as func
 
