@@ -42,12 +42,14 @@ def main(input: str, context: func.Context) -> str:
 
 
     try:
-        files = os.listdir(ffmpeg_path)
-        logging.info(f"Files in {ffmpeg_path}: {files}")
+        test = "/".join([str(context.function_directory), FFMPEG_RELATIVE_PATH])
+        logging.info(f"PATH: {test}")
+        files = os.listdir(test)
+        logging.info(f"Files in {test}: {files}")
     except Exception as e:
-        logging.error(f"Error listing files in {ffmpeg_path}: {str(e)}")
+        logging.error(f"Error listing files in {test}: {str(e)}")
 
-        
+
 
     user_id = input["user_id"]
     entry_key = input["entry_key"]
