@@ -42,10 +42,25 @@ def main(input: str, context: func.Context) -> str:
 
 
     try:
+  
+
+
+        filesx = os.listdir('/home/site/wwwroot')
+        logging.info(f"Files1 in '/home/site/wwwroot': {filesx}")
+
+        filesy = os.listdir('/home/site')
+        logging.info(f"Files1 in '/home/site': {filesy}")
+
+        filesz = os.listdir('/home')
+        logging.info(f"Files1 in '/home': {filesz}")
+
+        filesza = os.listdir('/')
+        logging.info(f"Files1 in '/': {filesza}")
+
         test = "/..".join([str(context.function_directory), FFMPEG_RELATIVE_PATH])
         logging.info(f"PATH: {test}")
 
-        test1 = f"/..{str(context.function_directory)}"
+        test1 = f"{str(context.function_directory)}/.."
         logging.info(f"PATH2: {test1}")
         files1 = os.listdir(test1)
         logging.info(f"Files1 in {test1}: {files1}")
