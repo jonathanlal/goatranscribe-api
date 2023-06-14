@@ -77,6 +77,17 @@ def main(input: dict) -> str:
     balance_in_cents = get_balance(user_sub)
 
     
+
+
+    audio_duration = float(audio_info["duration"])
+    cost_in_cents = math.ceil(audio_duration * COST_PER_SECOND * 100)
+    # audio_file_extension = audio_info["file_extension"]
+    # audio_file_url = audio_info["file_url"]
+
+
+    reimburse_cents = balance_in_cents + cost_in_cents
+
+
     encoded = audio_info.get("encoded", False)
     if not encoded:
         update_task_status(user_id, task_id, "encoding", "Encoding audio")
@@ -94,16 +105,11 @@ def main(input: dict) -> str:
                 time.sleep(2)  # wait for 2 seconds before the next check
         else:
             logging.error("ENCODING FAILED")
+            store_transaction_info(user_id, "refund", cost_in_cents, reimburse_cents)
+            update_balance(reimburse_cents, user_sub)
+            update_task_status(user_id, task_id, "encoding_failed", f"Encoding failed, user reimbursed.")
             # If we exit the loop because 5 minutes has passed and not because the audio has been encoded, return failure
             return json.dumps({entry_key: "encoding_failed"})
-
-    audio_duration = float(audio_info["duration"])
-    cost_in_cents = math.ceil(audio_duration * COST_PER_SECOND * 100)
-    # audio_file_extension = audio_info["file_extension"]
-    # audio_file_url = audio_info["file_url"]
-
-
-    reimburse_cents = balance_in_cents + cost_in_cents
 
     
 
@@ -114,7 +120,7 @@ def main(input: dict) -> str:
             temp_audio_file.write(audio_blob.content_as_bytes())
             temp_audio_path = temp_audio_file.name
     except Exception as e:
-        store_transaction_info(user_id, "refund", cost_in_cents, cost_in_cents+balance_in_cents)
+        store_transaction_info(user_id, "refund", cost_in_cents, reimburse_cents)
         update_balance(reimburse_cents, user_sub)
         update_task_status(user_id, task_id, "download_failed", f"Download failed, user reimbursed.")
         logging.error('azure error: %s', e)
@@ -179,7 +185,7 @@ def main(input: dict) -> str:
         os.remove(temp_audio_path)
         
     except Exception as e:
-        store_transaction_info(user_id, "refund", cost_in_cents, cost_in_cents+balance_in_cents)
+        store_transaction_info(user_id, "refund", cost_in_cents, reimburse_cents)
         update_balance(reimburse_cents, user_sub)
         update_task_status(user_id, task_id, "transcribe_failed", f"Transcribe failed, user reimbursed.")
         logging.error('openAI error: %s', e)
