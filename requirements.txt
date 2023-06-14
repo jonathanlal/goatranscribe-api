@@ -23,3 +23,4 @@ azure-ai-textanalytics==5.2.0
 azure-ai-translation-document==1.0.0
 ffmpeg-python
 sendgrid
+azure-storage-file-share
