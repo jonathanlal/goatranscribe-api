@@ -35,17 +35,22 @@ def main(input: str, context: func.Context) -> str:
     if os.environ.get('AZURE_FUNCTIONS_ENVIRONMENT') == 'Production':
     # Code is running on Azure, use Linux path
         logging.info('Running inside production environment')
-        ffmpeg_path = "/".join([str(context.function_directory), FFMPEG_RELATIVE_PATH, FFMPEG])
+        ffmpeg_path = "../".join([str(context.function_directory), FFMPEG_RELATIVE_PATH, FFMPEG])
     else:
         # Code is running locally, use Windows path
         ffmpeg_path = FFMPEG
 
 
     try:
-        test = "/".join([str(context.function_directory), FFMPEG_RELATIVE_PATH])
+        test = "../".join([str(context.function_directory), FFMPEG_RELATIVE_PATH])
         logging.info(f"PATH: {test}")
-        files = os.listdir(test)
-        logging.info(f"Files in {test}: {files}")
+
+        test1 = f"../{str(context.function_directory)}"
+        files1 = os.listdir(test1)
+        logging.info(f"Files1 in {test1}: {files1}")
+
+        files2 = os.listdir(test)
+        logging.info(f"Files2 in {test}: {files2}")
     except Exception as e:
         logging.error(f"Error listing files in {test}: {str(e)}")
 
