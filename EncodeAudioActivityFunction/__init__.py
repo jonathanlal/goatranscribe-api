@@ -35,17 +35,18 @@ def main(input: str, context: func.Context) -> str:
     if os.environ.get('AZURE_FUNCTIONS_ENVIRONMENT') == 'Production':
     # Code is running on Azure, use Linux path
         logging.info('Running inside production environment')
-        ffmpeg_path = "../".join([str(context.function_directory), FFMPEG_RELATIVE_PATH, FFMPEG])
+        ffmpeg_path = "/..".join([str(context.function_directory), FFMPEG_RELATIVE_PATH, FFMPEG])
     else:
         # Code is running locally, use Windows path
         ffmpeg_path = FFMPEG
 
 
     try:
-        test = "../".join([str(context.function_directory), FFMPEG_RELATIVE_PATH])
+        test = "/..".join([str(context.function_directory), FFMPEG_RELATIVE_PATH])
         logging.info(f"PATH: {test}")
 
-        test1 = f"../{str(context.function_directory)}"
+        test1 = f"/..{str(context.function_directory)}"
+        logging.info(f"PATH2: {test1}")
         files1 = os.listdir(test1)
         logging.info(f"Files1 in {test1}: {files1}")
 
