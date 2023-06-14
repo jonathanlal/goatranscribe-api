@@ -65,17 +65,22 @@ def main(input: str, context: func.Context) -> str:
         temp_audio_path = temp_audio_file.name
 
     update_task_status(user_id, task_id, "encoding_file", f"Encoding file")
+    logging.info(f"Encoding file {temp_audio_path}")
     new_audio_file = extract_encode_audio(temp_audio_path, f"{entry_key}.mp3", ffmpeg_path)
+    logging.info("encoding completed")
     if new_audio_file is None:
+        logging.info("extract_encode_audio returned None")
         update_task_status(user_id, task_id, "encoding_failed", f"Encoding failed, user reimbursed.")
         return json.dumps({entry_key: "encoding_failed"})
+    logging.info("file successfully encoded is not None")
     new_audio_file_content = read_file_as_bytes(new_audio_file)
     upload_file_to_container(new_audio_file_content, user_id, f"encoded/{new_audio_file}")
 
+    logging.info("removign temp files")
     # Cleanup: remove the original and new local files
     os.remove(temp_audio_file.name)
     os.remove(new_audio_file)
-
+    logging.info("updating task status")
     update_task_status(user_id, task_id, "encoding_file", f"completed")
     update_audio_encoded(user_id, entry_key)
 
