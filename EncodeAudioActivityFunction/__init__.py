@@ -66,20 +66,21 @@ def main(input: str, context: func.Context) -> str:
 
     update_task_status(user_id, task_id, "encoding_file", f"Encoding file")
     logging.info(f"Encoding file {temp_audio_path}")
-    new_audio_file = extract_encode_audio(temp_audio_path, f"{entry_key}.mp3", ffmpeg_path)
+    output_file_name = os.path.join("/tmp", f"{entry_key}.mp3")
+    extract_status = extract_encode_audio(temp_audio_path, output_file_name, ffmpeg_path)
     logging.info("encoding completed")
-    if new_audio_file is None:
+    if extract_status is None:
         logging.info("extract_encode_audio returned None")
         update_task_status(user_id, task_id, "encoding_failed", f"Encoding failed, user reimbursed.")
         return json.dumps({entry_key: "encoding_failed"})
     logging.info("file successfully encoded is not None")
-    new_audio_file_content = read_file_as_bytes(new_audio_file)
-    upload_file_to_container(new_audio_file_content, user_id, f"encoded/{new_audio_file}")
+    new_audio_file_content = read_file_as_bytes(output_file_name)
+    upload_file_to_container(new_audio_file_content, user_id, f"encoded/{entry_key}.mp3")
 
-    logging.info("removign temp files")
+    logging.info("removing temp files")
     # Cleanup: remove the original and new local files
     os.remove(temp_audio_file.name)
-    os.remove(new_audio_file)
+    os.remove(output_file_name)
     logging.info("updating task status")
     update_task_status(user_id, task_id, "encoding_file", f"completed")
     update_audio_encoded(user_id, entry_key)
@@ -95,16 +96,6 @@ def read_file_as_bytes(file_path):
         return file.read()
     
 def extract_encode_audio(input_file, output_file, ffmpeg_path):
-    # try:
-    #     # Extract audio
-    #     # ffmpeg.input(input_file).output(output_file, format='mp3', audio_bitrate='64k').run(capture_stdout=True, capture_stderr=True)
-    #     # subprocess.check_output([ffmpeg_path, '-i', input_file, '-b:a', '64k', output_file])
-    #     subprocess.check_output([ffmpeg_path, '-i', input_file, '-vn', '-ar', '44100', '-ac', '2', '-b:a', '64k', output_file])
-    #     return output_file
-    # # except ffmpeg.Error as e:
-    # except Exception as e:
-    #     logging.info('Error during audio extraction %s', e)
-    #     return None
     try:
         subprocess.check_output([ffmpeg_path, '-i', input_file, '-vn', '-ar', '44100', '-ac', '2', '-b:a', '64k', output_file], stderr=subprocess.STDOUT)
     except subprocess.CalledProcessError as e:
