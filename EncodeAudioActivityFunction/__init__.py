@@ -98,6 +98,7 @@ def read_file_as_bytes(file_path):
 def extract_encode_audio(input_file, output_file, ffmpeg_path):
     try:
         subprocess.check_output([ffmpeg_path, '-i', input_file, '-vn', '-ar', '44100', '-ac', '2', '-b:a', '64k', output_file], stderr=subprocess.STDOUT)
+        return True
     except subprocess.CalledProcessError as e:
         logging.info(f'Error during audio extraction: {e.output.decode()}')
         return None
