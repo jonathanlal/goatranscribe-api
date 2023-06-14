@@ -103,5 +103,5 @@ def extract_encode_audio(input_file, output_file, ffmpeg_path):
         return output_file
     # except ffmpeg.Error as e:
     except Exception as e:
-        logging.info('Error during audio extraction', e)
+        logging.info('Error during audio extraction %s', e)
         return None
