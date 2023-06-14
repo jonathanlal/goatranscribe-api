@@ -23,7 +23,7 @@ def main(input: str, context: func.Context) -> str:
     
     if os.environ.get('AZURE_FUNCTIONS_ENVIRONMENT') == 'Production':
         # Code is running in Azure, use the mounted file share
-        ffmpeg_path = "/..".join([str(context.function_directory), FFMPEG_RELATIVE_PATH, FFMPEG])
+        ffmpeg_path = os.path.join(str(context.function_directory), '..', FFMPEG_RELATIVE_PATH, FFMPEG)
     else:
         # Code is running locally, use Windows PATH
         ffmpeg_path = FFMPEG
