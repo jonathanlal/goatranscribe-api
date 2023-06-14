@@ -14,16 +14,6 @@ import os
 import tempfile
 
 
-# def download_file_from_share(share_name: str, dir_name: str, file_name: str, connection_string: str) -> str:
-#     file_path = os.path.join(tempfile.gettempdir(), file_name)
-    
-#     file_client = ShareFileClient.from_connection_string(connection_string, share_name, f"{dir_name}/{file_name}")
-    
-#     with open(file_path, "wb") as local_file:
-#         download = file_client.download_file()
-#         local_file.write(download.readall())
-
-#     return file_path
 FFMPEG_RELATIVE_PATH = os.environ['FILE_SHARE_MOUNT_PATH']
 FFMPEG = "ffmpeg"
 
@@ -33,42 +23,22 @@ def main(input: str, context: func.Context) -> str:
 
     
     if os.environ.get('AZURE_FUNCTIONS_ENVIRONMENT') == 'Production':
-    # Code is running on Azure, use Linux path
-        logging.info('Running inside production environment')
+        # Code is running in Azure, use the mounted file share
         ffmpeg_path = "/..".join([str(context.function_directory), FFMPEG_RELATIVE_PATH, FFMPEG])
     else:
-        # Code is running locally, use Windows path
+        # Code is running locally, use Windows PATH
         ffmpeg_path = FFMPEG
 
 
-    try:
+    # try:
   
+    #     test = "/..".join([str(context.function_directory), FFMPEG_RELATIVE_PATH])
+    #     logging.info(f"PATH: {test}")
 
-
-        filesx = os.listdir('/home/site/wwwroot')
-        logging.info(f"Files1 in '/home/site/wwwroot': {filesx}")
-
-        filesy = os.listdir('/home/site')
-        logging.info(f"Files1 in '/home/site': {filesy}")
-
-        filesz = os.listdir('/home')
-        logging.info(f"Files1 in '/home': {filesz}")
-
-        filesza = os.listdir('/')
-        logging.info(f"Files1 in '/': {filesza}")
-
-        test = "/..".join([str(context.function_directory), FFMPEG_RELATIVE_PATH])
-        logging.info(f"PATH: {test}")
-
-        test1 = f"{str(context.function_directory)}/.."
-        logging.info(f"PATH2: {test1}")
-        files1 = os.listdir(test1)
-        logging.info(f"Files1 in {test1}: {files1}")
-
-        files2 = os.listdir(test)
-        logging.info(f"Files2 in {test}: {files2}")
-    except Exception as e:
-        logging.error(f"Error listing files in {test}: {str(e)}")
+    #     files2 = os.listdir(test)
+    #     logging.info(f"Files2 in {test}: {files2}")
+    # except Exception as e:
+    #     logging.error(f"Error listing files in {test}: {str(e)}")
 
 
 
@@ -97,6 +67,9 @@ def main(input: str, context: func.Context) -> str:
 
     update_task_status(user_id, task_id, "encoding_file", f"Encoding file")
     new_audio_file = extract_encode_audio(temp_audio_path, f"{entry_key}.mp3", ffmpeg_path)
+    if new_audio_file is None:
+        update_task_status(user_id, task_id, "encoding_failed", f"Encoding failed, user reimbursed.")
+        return json.dumps({entry_key: "encoding_failed"})
     new_audio_file_content = read_file_as_bytes(new_audio_file)
     upload_file_to_container(new_audio_file_content, user_id, f"encoded/{new_audio_file}")
 
