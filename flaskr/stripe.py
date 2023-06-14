@@ -15,6 +15,11 @@ if ENV_FILE:
 
 stripe.api_key = os.environ['STRIPE_API_TEST']
 
+# if os.environ.get('AZURE_FUNCTIONS_ENVIRONMENT') == 'Production':
+#     stripe.api_key = os.environ['STRIPE_API_LIVE']
+# else:
+#     stripe.api_key = os.environ['STRIPE_API_TEST']
+
 
 @bp.route("/add_wallet_credit", methods=["POST"])
 @require_auth(None)
