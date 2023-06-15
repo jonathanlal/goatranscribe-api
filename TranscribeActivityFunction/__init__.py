@@ -47,7 +47,7 @@ def adjust_srt(srt_text, last_end_time, last_index):
     return srt.compose(subs), subs[-1].end, subs[-1].index
 
 def split_audio(audio_file_path):
-    audio = AudioSegment.from_file(audio_file_path, format="mp3")
+    audio = AudioSegment.from_mp3(audio_file_path)
 
     # Break audio into chunks of 50 minute chunks
     # 64kbps = around 53 minutes for 25mb
@@ -146,13 +146,15 @@ def main(input: dict) -> str:
 
         if is_split:
             update_task_status(user_id, task_id, "chunking", "Chunking audio file")
+            logging.info(f"splottomg audio file if")
             chunks = split_audio(temp_audio_path)
         else:
-            audio = AudioSegment.from_file(temp_audio_path, format="mp3")
+            logging.info(f"segmenting audio file else")
+            audio = AudioSegment.from_mp3(temp_audio_path)
             chunks = [audio]
         
         # chunks = split_audio(temp_audio_path)
-
+        logging.info(f"passed splitting audio file")
         last_end_time = timedelta(0)
         last_index = 1
         subtitles = []
