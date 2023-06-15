@@ -20,31 +20,19 @@ FFMPEG = "ffmpeg"
 
 def main(input: str, context: func.Context) -> str:
 
+    user_id = input["user_id"]
+    entry_key = input["entry_key"]
     
     if os.environ.get('AZURE_FUNCTIONS_ENVIRONMENT') == 'Production':
         # Code is running in Azure, use the mounted file share
-        # ffmpeg_path = os.path.join(str(context.function_directory), '..'+FFMPEG_RELATIVE_PATH, FFMPEG)
         ffmpeg_path = '/home/site/wwwroot/ffmpeg_lib/ffmpeg'
+        #tmp directory on linux to read/write files
+        output_file_name = os.path.join("/tmp", f"{entry_key}.mp3")
     else:
         # Code is running locally, use Windows PATH
         ffmpeg_path = FFMPEG
+        output_file_name = f"{entry_key}.mp3"
 
-    # try:
-  
-    #     test = "/..".join([str(context.function_directory), FFMPEG_RELATIVE_PATH])
-    #     logging.info(f"PATH: {test}")
-
-    #     files2 = os.listdir(test)
-    #     logging.info(f"Files2 in {test}: {files2}")
-    # except Exception as e:
-    #     logging.error(f"Error listing files in {test}: {str(e)}")
-
-
-
-    user_id = input["user_id"]
-    entry_key = input["entry_key"]
-
-    
 
     audio_file_name = f"audio/{entry_key}"
     audio_info = get_audio_info(entry_key, user_id)
@@ -66,7 +54,7 @@ def main(input: str, context: func.Context) -> str:
 
     update_task_status(user_id, task_id, "encoding_file", f"Encoding file")
     logging.info(f"Encoding file {temp_audio_path}")
-    output_file_name = os.path.join("/tmp", f"{entry_key}.mp3")
+    
     extract_status = extract_encode_audio(temp_audio_path, output_file_name, ffmpeg_path)
     logging.info("encoding completed")
     if extract_status is None:
