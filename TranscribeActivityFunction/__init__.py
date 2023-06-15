@@ -31,10 +31,10 @@ mediainfo.ffprobe = ffprobe_path
 
 nltk.download('punkt')
 
-def get_audio_duration(audio_file_path):
-    audio_info = mediainfo(audio_file_path)
-    duration = int(float(audio_info["duration"]))  # duration in seconds
-    return timedelta(seconds=duration)
+# def get_audio_duration(audio_file_path):
+#     audio_info = mediainfo(audio_file_path)
+#     duration = int(float(audio_info["duration"]))  # duration in seconds
+#     return timedelta(seconds=duration)
 
 def adjust_srt(srt_text, last_end_time, last_index):
     subs = list(srt.parse(srt_text))
@@ -122,8 +122,10 @@ def main(input: dict) -> str:
 
     update_task_status(user_id, task_id, "downloading_file", "Downloading audio from file")
     try:
+        logging.info(f"Downloading file: {audio_file_name}")
         audio_blob = download_file_from_azure(audio_file_name, user_id)
         with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as temp_audio_file:
+            logging.info(f"Writing file: {audio_file_name}")
             temp_audio_file.write(audio_blob.content_as_bytes())
             temp_audio_path = temp_audio_file.name
     except Exception as e:
@@ -134,9 +136,13 @@ def main(input: dict) -> str:
         return json.dumps({entry_key: "download_failed"})
 
     try:
-        audio_duration = get_audio_duration(temp_audio_path)
+        logging.info(f"getting audio duration from path: {temp_audio_path}")
+        duration = int(float(audio_info["duration"]))  # duration in seconds
+#     return timedelta(seconds=duration)
+        # audio_duration = get_audio_duration(temp_audio_path)
         split_threshold = timedelta(minutes=50)
-        is_split = audio_duration > split_threshold
+        is_split = timedelta(seconds=duration) > split_threshold
+        logging.info(f"is_split: {is_split}")
 
         if is_split:
             update_task_status(user_id, task_id, "chunking", "Chunking audio file")
