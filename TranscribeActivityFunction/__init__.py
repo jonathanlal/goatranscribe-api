@@ -21,6 +21,13 @@ import math
 from pydub import AudioSegment
 from pydub.utils import mediainfo
 
+# path to ffmpeg and ffprobe
+ffmpeg_path = "/home/site/wwwroot/ffmpeg_lib/ffmpeg"
+ffprobe_path = "/home/site/wwwroot/ffmpeg_lib/ffprobe"
+
+AudioSegment.converter = ffmpeg_path
+AudioSegment.ffprobe = ffprobe_path
+mediainfo.ffprobe = ffprobe_path
 
 nltk.download('punkt')
 
