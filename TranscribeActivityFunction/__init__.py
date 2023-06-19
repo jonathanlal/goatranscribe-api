@@ -60,6 +60,7 @@ def adjust_srt(srt_text, last_end_time, last_index):
 #         chunks.append(audio[i:i + chunk_length])
 
 #     return chunks
+is_prod = os.environ.get('AZURE_FUNCTIONS_ENVIRONMENT') == 'Production'
 
 def split_audio(input_file_path, audio_duration, entry_key):
     segment_duration = 50 * 60  # length in seconds
@@ -67,11 +68,10 @@ def split_audio(input_file_path, audio_duration, entry_key):
     
     num_segments = math.ceil(audio_duration / segment_duration)
 
-    is_prod = os.environ.get('AZURE_FUNCTIONS_ENVIRONMENT') == 'Production'
 
     if is_prod:
         ffmpeg_path = '/home/site/wwwroot/ffmpeg_lib/ffmpeg'
-        output_directory = f"./tmp/{entry_key}"
+        output_directory = f"/tmp/{entry_key}"
     else:
         ffmpeg_path = 'ffmpeg'
         output_directory = f"./{entry_key}"
@@ -244,7 +244,6 @@ def main(input: dict) -> str:
         subtitles = []
         last_prompt = None
         for i, chunk in enumerate(chunks):
-        # with tempfile.NamedTemporaryFile(suffix=".mp3", delete=True) as tmp_file:
             try:
                 with open(chunk, "rb") as tmp_file:
                     # chunk.export(tmp_file.name, format="mp3", bitrate="64k")
@@ -281,6 +280,7 @@ def main(input: dict) -> str:
                     pass
                 logging.info("removing chunk")
                 os.remove(chunk)
+            
             except Exception as e:
                 store_transaction_info(user_id, "refund", cost_in_cents, reimburse_cents)
                 update_balance(reimburse_cents, user_sub)
@@ -290,6 +290,15 @@ def main(input: dict) -> str:
             # finally:
             #     tmp_file.close() 
             #     os.remove(tmp_file.name)
+        
+            
+        if is_prod:
+            output_directory = f"/tmp/{entry_key}"
+        else:
+            output_directory = f"./{entry_key}"
+
+        if os.path.exists(output_directory):
+            os.rmdir(output_directory)
 
         logging.info("removing temp audio file")
         if os.path.exists(temp_audio_path):
