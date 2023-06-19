@@ -10,6 +10,7 @@ import os
 from flaskr.firebase import COST_PER_SECOND, create_custom_token, create_entry_key, get_entry, get_tasks, get_uploads, mark_task_as_seen, mark_tasks_as_seen, store_file_info
 from firebase_admin import db
 from flaskr.azure import download_file_from_azure, get_container_sas, getBlobUrl
+import logging
 # import tempfile
 # import nltk
 
@@ -35,6 +36,8 @@ def transcript_seen():
     user_id = getUserID(current_token)
     mark_task_as_seen(user_id, request.json['entryKey'])
     return jsonify({"message": "Transcript marked as seen."})
+
+
 
 @bp.route("/transcripts_seen", methods=["POST"])
 @require_auth(None)
@@ -347,7 +350,45 @@ def translate():
     else:
         return jsonify({"error": "Failed to send request"}), response.status_code
 
-import logging
+
+
+@bp.route("/retry_failed_transcribe", methods=["POST"])
+@require_auth(None)
+def retry_failed_transcribe():
+    # user_id = getUserID(current_token)
+    entry_key = request.json['entryKey']
+
+    authorization_header = request.headers.get('Authorization')
+    if authorization_header:
+        access_token = authorization_header.split(' ')[1]  # Assuming "Bearer <access_token>" format
+        logging.info('Access token acquired')
+    else:
+        logging.error('Missing access token')
+        return jsonify({"error": "Missing access token"}), 401
+
+    # make post request here with access token in authorization_header and entry_keys in body
+    url = f"{functions_url}api/orchestrators/TaskOrchestrator"
+    headers = {'Authorization': 'Bearer ' + access_token}
+    data = {'entryKeys': [entry_key], 'task_type': 'transcribe', 'retry': True}
+    logging.info('Sending POST request to %s with headers %s and data %s', url, headers, data)
+    
+    try:
+        response = requests.post(url, headers=headers, json=data)
+        logging.info('Response received from POST request')
+    except Exception as e:
+        logging.error('Error during POST request: %s', str(e))
+        return jsonify({"error": "Failed to send request due to an exception: "+str(e)}), 500
+
+    # print(response.text)
+
+    # Check the response status
+    if response.status_code == 202:
+        instanceId = json.loads(response.text)['id']
+        logging.info('Request sent successfully. Instance ID: %s', instanceId)
+        return jsonify({"message": "Request sent successfully", "instanceId": instanceId}), 202
+    else:
+        logging.error('Failed to send request. Response code: %s', response.status_code)
+        return jsonify({"error": "Failed to send request"}), response.status_code
 
 @bp.route("/transcribe", methods=["POST"])
 @require_auth(None)

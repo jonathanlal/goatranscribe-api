@@ -11,23 +11,25 @@ import nltk
 from nltk.tokenize import word_tokenize
 
 from flaskr.azure import detect_language, download_file_from_azure, upload_file_to_container
-from flaskr.firebase import COST_PER_SECOND, create_task_entry_key, get_audio_info, store_file_info, store_transaction_info, update_audio_lang, update_audio_status, update_task_status
+from flaskr.firebase import COST_PER_SECOND, create_task_entry_key, get_audio_info, get_failed_transcribe_task_id, store_file_info, store_transaction_info, update_audio_lang, update_audio_status, update_task_status
 from flaskr.stripe import get_balance, update_balance
 from flaskr.transcribe import extract_text_from_srt, transcribe_audio
 import datetime
 from datetime import timedelta
 import math
+import subprocess
+# import shlex
 
-from pydub import AudioSegment
-from pydub.utils import mediainfo
+# from pydub import AudioSegment
+# from pydub.utils import mediainfo
 
 # path to ffmpeg and ffprobe
-ffmpeg_path = "/home/site/wwwroot/ffmpeg_lib/ffmpeg"
-ffprobe_path = "/home/site/wwwroot/ffmpeg_lib/ffprobe"
+# ffmpeg_path = "/home/site/wwwroot/ffmpeg_lib/ffmpeg"
+# ffprobe_path = "/home/site/wwwroot/ffmpeg_lib/ffprobe"
 
-AudioSegment.converter = ffmpeg_path
-AudioSegment.ffprobe = ffprobe_path
-mediainfo.ffprobe = ffprobe_path
+# AudioSegment.converter = ffmpeg_path
+# AudioSegment.ffprobe = ffprobe_path
+# mediainfo.ffprobe = ffprobe_path
 
 nltk.download('punkt')
 
@@ -46,18 +48,90 @@ def adjust_srt(srt_text, last_end_time, last_index):
 
     return srt.compose(subs), subs[-1].end, subs[-1].index
 
-def split_audio(audio_file_path):
-    audio = AudioSegment.from_mp3(audio_file_path)
+# def split_audio(audio_file_path):
+#     audio = AudioSegment.from_mp3(audio_file_path)
 
-    # Break audio into chunks of 50 minute chunks
-    # 64kbps = around 53 minutes for 25mb
-    chunk_length = 50 * 60 * 1000  # length in milliseconds
-    chunks = []
+#     # Break audio into chunks of 50 minute chunks
+#     # 64kbps = around 53 minutes for 25mb
+#     chunk_length = 50 * 60 * 1000  # length in milliseconds
+#     chunks = []
 
-    for i in range(0, len(audio), chunk_length):
-        chunks.append(audio[i:i + chunk_length])
+#     for i in range(0, len(audio), chunk_length):
+#         chunks.append(audio[i:i + chunk_length])
 
-    return chunks
+#     return chunks
+
+def split_audio(input_file_path, audio_duration, entry_key):
+    segment_duration = 50 * 60  # length in seconds
+    # chunks = []
+    
+    num_segments = math.ceil(audio_duration / segment_duration)
+
+    is_prod = os.environ.get('AZURE_FUNCTIONS_ENVIRONMENT') == 'Production'
+
+    if is_prod:
+        ffmpeg_path = '/home/site/wwwroot/ffmpeg_lib/ffmpeg'
+        output_directory = f"./tmp/{entry_key}"
+    else:
+        ffmpeg_path = 'ffmpeg'
+        output_directory = f"./{entry_key}"
+
+    output_files = []
+
+    os.makedirs(output_directory, exist_ok=True)
+
+    output_pattern = f"{output_directory}/out%03d.mp3"
+
+
+    try:
+        # Run ffmpeg to create the segments
+        cmd = [ffmpeg_path, "-i", input_file_path, "-f", "segment", "-segment_time", str(segment_duration), "-c", "copy", output_pattern]
+        subprocess.call(cmd)
+
+        # Generate a list of the output filenames
+        output_files = [output_pattern % i for i in range(num_segments)]
+    except Exception as e:
+        print(f"An error occurred: {str(e)}")
+    
+    return output_files
+
+    # if os.environ.get('AZURE_FUNCTIONS_ENVIRONMENT') == 'Production':
+    #     # Code is running in Azure, use the mounted file share
+    #     ffmpeg_path = '/home/site/wwwroot/ffmpeg_lib/ffmpeg'
+    #     #tmp directory on linux to read/write files
+    #     output_file_name = os.path.join("/tmp", f"{entry_key}.mp3")
+    # else:
+    #     # Code is running locally, use Windows PATH
+    #     ffmpeg_path = FFMPEG
+    #     output_file_name = f"{entry_key}.mp3"
+
+    # Get the duration of the input file
+    # try:
+    #     duration_str = subprocess.check_output([ffmpeg_path, "-i", input_file_path, "-f", "segment", "-segment_time" str(chunk_length), "-c", "copy", output_pattern]).decode()
+    #     h, m, s = duration_str.split(":")
+    #     total_seconds = int(h) * 3600 + int(m) * 60 + float(s)
+    # except subprocess.CalledProcessError as e:
+    #     logging.error(f'Error getting duration: {e.output.decode()}')
+    #     return None
+
+    # for i in range(0, int(total_seconds), chunk_length):
+
+    #     if is_prod:
+    #         output_file_path = os.path.join("/tmp", f"chunk_{i//chunk_length}.mp3")
+    #     else:
+    #         output_file_path = f"chunk_{i//chunk_length}.mp3"
+
+    #     # start_time = str(timedelta(seconds=i))
+    #     cmd = f'{ffmpeg_path} -i "{input_file_path}" - "{output_file_path}"'
+    #     try:
+    #         subprocess.check_output(cmd, shell=True)
+    #         chunks.append(output_file_path)
+    #     except subprocess.CalledProcessError as e:
+    #         logging.error(f'Error during chunk creation: {e.output.decode()}')
+    #         return None
+
+    # return chunks
+
 
 
 #input is the entry_key
@@ -67,6 +141,7 @@ def main(input: dict) -> str:
     user_id = input["user_id"]
     user_sub = input["user_sub"]
     entry_key = input["entry_key"]
+    is_retry = input["retry"]
     email_on_finish = input["email_on_finish"]
 
     transcript_file_name = f"{entry_key}.txt"
@@ -78,7 +153,14 @@ def main(input: dict) -> str:
 
     audio_info = get_audio_info(entry_key, user_id)
 
-    task_id = create_task_entry_key(user_id, 'transcribe', entry_key, audio_info["file_name"])
+    logging.info(f"is_retry: {is_retry}")
+
+    if is_retry:
+        task_id = get_failed_transcribe_task_id(user_id, entry_key, audio_info["file_name"])
+        update_task_status(user_id, task_id, "retrying", "Retrying transcription")
+    else:
+        task_id = create_task_entry_key(user_id, 'transcribe', entry_key, audio_info["file_name"])
+    
     update_audio_status(user_id, entry_key, "processing")
 
     balance_in_cents = get_balance(user_sub)
@@ -147,32 +229,36 @@ def main(input: dict) -> str:
         if is_split:
             update_task_status(user_id, task_id, "chunking", "Chunking audio file")
             logging.info(f"splottomg audio file if")
-            chunks = split_audio(temp_audio_path)
+            chunks = split_audio(temp_audio_path, duration, entry_key)
         else:
             logging.info(f"segmenting audio file else")
-            audio = AudioSegment.from_mp3(temp_audio_path)
-            chunks = [audio]
+            # audio = AudioSegment.from_mp3(temp_audio_path)
+            chunks = [temp_audio_path]
+            # chunks = split_audio(temp_audio_path, duration, entry_key)
         
         # chunks = split_audio(temp_audio_path)
         logging.info(f"passed splitting audio file")
+        logging.info(f"chunks: {chunks}")
         last_end_time = timedelta(0)
         last_index = 1
         subtitles = []
         last_prompt = None
         for i, chunk in enumerate(chunks):
-            with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as tmp_file:
-                try:
-                    chunk.export(tmp_file.name, format="mp3", bitrate="64k")
+        # with tempfile.NamedTemporaryFile(suffix=".mp3", delete=True) as tmp_file:
+            try:
+                with open(chunk, "rb") as tmp_file:
+                    # chunk.export(tmp_file.name, format="mp3", bitrate="64k")
                     if is_split:
                         update_task_status(user_id, task_id, "transcribing", f"Transcribing audio chunk {i+1}/{len(chunks)}")
                     else:
                         update_task_status(user_id, task_id, "transcribing", f"Transcribing audio in file")
                     # size_in_bytes = os.path.getsize(tmp_file.name)
                     # logging.info(f"CHUNK SIZE: {size_in_bytes}")
-
+                    logging.info(f"Transcribing audio chunk {i+1}/{len(chunks)}")
                     srt_text = transcribe_audio(tmp_file, initial_prompt=last_prompt)
-                    
+                    logging.info(f"Transcribed finished {i+1}/{len(chunks)}")
                     # Adjust the subtitles
+                    logging.info("adjusting subtitles")
                     subs = list(srt.parse(srt_text))
                     adjusted_subs = []
                     for sub in subs:
@@ -188,16 +274,28 @@ def main(input: dict) -> str:
 
 
                     subtitles += adjusted_subs
-
+                    logging.info("adjusting subtitles finished")
                     transcript_chunk = extract_text_from_srt(subs)
                     last_prompt = ' '.join(transcript_chunk.split()[-224:])
-                finally:
-                    tmp_file.close() 
-                    os.remove(tmp_file.name)
+                    logging.info("about to pass chunk")
+                    pass
+                logging.info("removing chunk")
+                os.remove(chunk)
+            except Exception as e:
+                store_transaction_info(user_id, "refund", cost_in_cents, reimburse_cents)
+                update_balance(reimburse_cents, user_sub)
+                update_task_status(user_id, task_id, "transcribe_failed", f"Transcribe failed, user reimbursed.")
+                logging.error('segment file error: %s', e)
+                return json.dumps({entry_key: "transcribe_failed"})
+            # finally:
+            #     tmp_file.close() 
+            #     os.remove(tmp_file.name)
 
-
-        temp_audio_file.close()
-        os.remove(temp_audio_path)
+        logging.info("removing temp audio file")
+        if os.path.exists(temp_audio_path):
+            os.remove(temp_audio_path)
+        # temp_audio_file.close()
+        # os.remove(temp_audio_path)
         
     except Exception as e:
         store_transaction_info(user_id, "refund", cost_in_cents, reimburse_cents)

@@ -176,6 +176,19 @@ def store_payment_intent(user_id, payment_id):
         "payment_id": payment_id
     })
 
+def get_failed_transcribe_task_id(user_id, entry_key, file_name):
+    ref = db.reference(f'users/{user_id}/tasks')
+    tasks = ref.get()
+
+    if tasks:
+        for task_id, task_data in tasks.items():
+            status = task_data.get('status')
+            if (task_data.get('entry_key') == entry_key 
+                and task_data.get('task_type') == 'transcribe' 
+                and status and 'failed' in status
+                and task_data.get('file_name') == file_name):
+                return task_id[1:]
+
 
 def create_task_entry_key(user_id, task_type, entry_key, file_name):
     ref = db.reference(f'users/{user_id}/tasks')

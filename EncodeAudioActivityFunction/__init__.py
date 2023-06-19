@@ -1,14 +1,8 @@
 import json
 import logging
-
 import subprocess
-import azure.functions as func
-
-
-
 from flaskr.azure import download_file_from_azure, upload_file_to_container
 from flaskr.firebase import create_task_entry_key, get_audio_info, update_audio_encoded, update_task_status
-# import ffmpeg
 import os
 import tempfile
 
@@ -18,7 +12,7 @@ FFMPEG = "ffmpeg"
 
 
 
-def main(input: str, context: func.Context) -> str:
+def main(input: str) -> str:
 
     user_id = input["user_id"]
     entry_key = input["entry_key"]
@@ -44,35 +38,26 @@ def main(input: str, context: func.Context) -> str:
         original_audio_blob = download_file_from_azure(audio_file_name, user_id)
     except Exception as e:
         update_task_status(user_id, task_id, "download_failed", f"Download failed, user reimbursed.")
-        logging.error('azure error: %s', e)
         return json.dumps({entry_key: "download_failed"})
     
-
     with tempfile.NamedTemporaryFile(delete=False) as temp_audio_file:
         temp_audio_file.write(original_audio_blob.content_as_bytes())
         temp_audio_path = temp_audio_file.name
 
     update_task_status(user_id, task_id, "encoding_file", f"Encoding file")
-    logging.info(f"Encoding file {temp_audio_path}")
     
     extract_status = extract_encode_audio(temp_audio_path, output_file_name, ffmpeg_path)
-    logging.info("encoding completed")
     if extract_status is None:
-        logging.info("extract_encode_audio returned None")
         update_task_status(user_id, task_id, "encoding_failed", f"Encoding failed, user reimbursed.")
         return json.dumps({entry_key: "encoding_failed"})
-    logging.info("file successfully encoded is not None")
     new_audio_file_content = read_file_as_bytes(output_file_name)
     upload_file_to_container(new_audio_file_content, user_id, f"encoded/{entry_key}.mp3")
 
-    logging.info("removing temp files")
     # Cleanup: remove the original and new local files
     os.remove(temp_audio_file.name)
     os.remove(output_file_name)
-    logging.info("updating task status")
     update_task_status(user_id, task_id, "encoding_file", f"completed")
     update_audio_encoded(user_id, entry_key)
-
 
     # update_audio_status(user_id, entry_key, "Ready")
 
