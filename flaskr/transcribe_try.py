@@ -43,7 +43,8 @@ def tryTranscribe():
     tokens = word_tokenize(transcript)
     word_count = len(tokens)
     metadata = {
-        'wordCount': str(word_count)
+        'wordCount': str(word_count),
+        'charCount': str(len(transcript))
     }
     upload_file_to_azure(transcript_file_name, transcript, metadata=metadata) #upload text transcript to azure
     store_file_info(entry_key, 'transcript')
