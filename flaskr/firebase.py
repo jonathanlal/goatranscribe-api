@@ -23,13 +23,8 @@ firebase_admin.initialize_app(cred, {
 })
 
 def create_custom_token(user_id):
-    # additional_claims = {
-    #     'premiumAccount': True
-    # }
     custom_token = auth.create_custom_token(user_id)
-    # print('customToken: ', custom_token)
     return custom_token
-
 
 def get_audio_info(entry_key, user_id):
     ref = db.reference(f'users/{user_id}/transcripts/-{entry_key}/audio')
@@ -44,8 +39,6 @@ def get_transcript_info(entry_key, user_id):
 def create_entry_key(user_id):
     ref = db.reference(f'users/{user_id}/transcripts')
     new_entry = ref.push()
-    # entry_key = new_entry.key[1:]
-    # entry_key = entry_key.lower().replace("_", "x0x").replace("-", )
     return new_entry.key[1:]
 
 def get_entry(user_id, entry_key):
@@ -135,10 +128,9 @@ def store_file_info(entry_key, file_category, file_name=None, user_id=None):
     
     if file_name is None:
         file_name = entry_key
-    # print(f"Storing file info for {entry_key} in {file_category} for user {user_id}" )
+
     container_name = f"{user_id}/{file_category}"
     blob = get_blob_service_client(container_name, file_name)
-    # blob = get_blob_client(f"{file_category}/{entry_key}", user_id) #here is the error, we need to add .srt if it's a subtitle
     blob_properties = blob.get_blob_properties()
     metadata = blob_properties.metadata
     file_type = blob_properties.content_settings.content_type
@@ -167,7 +159,6 @@ def store_file_info(entry_key, file_category, file_name=None, user_id=None):
         info[file_category]["status"] = "Ready"
 
     ref.update(info)
-
 
 def store_payment_intent(user_id, payment_id):
     ref = db.reference(f'users/{user_id}/payments')
@@ -254,7 +245,6 @@ def check_already_transcribed(user_id, entry_key):
                 return True
     return False
 
-
 def get_tasks(user_id):
     ref = db.reference(f'users/{user_id}/tasks')
     tasks = ref.get()
@@ -263,7 +253,6 @@ def get_tasks(user_id):
     if tasks:
         for task_key, task_data in tasks.items():
             if not isinstance(task_data, dict):
-                print(f"Warning: task_data for key {task_key} is not a dictionary.")
                 continue
             all_tasks.append({
                 "file_name": task_data["file_name"],
@@ -316,7 +305,6 @@ def get_transactions(user_id):
     if transactions:
         for transaction_key, transaction_data in transactions.items():
             if not isinstance(transaction_data, dict):
-                print(f"Warning: transaction_data for key {transaction_key} is not a dictionary.")
                 continue
             all_transactions.append({
                 "id": transaction_key,
@@ -327,8 +315,6 @@ def get_transactions(user_id):
                 "date": transaction_data["date"],
             })
     return all_transactions
-
-
 
 def check_payment_intent_exists(user_id, payment_id):
     ref = db.reference(f'users/{user_id}/payments')
@@ -349,12 +335,9 @@ def get_entry_by_id(user_id, entry_id):
     entry = ref.child(entry_id).get()
 
     if not isinstance(entry, dict):
-        print(f"Warning: entry_data for key {entry_id} is not a dictionary.")
         return None
     
     return entry
-
-
 
 def get_uploads(user_id):
     ref = db.reference(f'users/{user_id}/transcripts')
@@ -364,9 +347,8 @@ def get_uploads(user_id):
     if transcripts:
         for entry_key, entry_data in transcripts.items():
             if not isinstance(entry_data, dict):
-                # print(f"Warning: entry_data for key {entry_key} is not a dictionary.")
                 continue
-            # if 'transcript' not in entry_data:
+
             audio = entry_data.get('audio')
             if audio is not None:
                 duration = float(audio.get("duration", 0))
@@ -390,10 +372,7 @@ def get_uploads(user_id):
                     "language": audio.get("language"),
                     "iso": audio.get("iso")
                 })
-                # else:
-                #     continue
     return incomplete_uploads
-
 
 def seen_uploads_welcome(user_id):
     ref = db.reference(f'users/{user_id}/settings')
