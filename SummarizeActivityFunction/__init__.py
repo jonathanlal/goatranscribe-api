@@ -46,9 +46,7 @@ def main(input: str) -> str:
     update_task_status(user_id, task_id, "creating_summary", "Creating summary")
 
     try:
-        response = create_summary(transcript)
-        summary = response['choices'][0]['message']['content']
-
+        summary = create_summary(transcript)
         update_task_status(user_id, task_id, "uploading_file", "Uploading summary file")
 
         upload_file_to_azure(summary_file_name, summary, user_id)
