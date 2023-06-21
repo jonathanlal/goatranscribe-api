@@ -1,16 +1,12 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint
 from authlib.integrations.flask_oauth2 import ResourceProtector
 from os import environ as env
 from auth0.authentication import GetToken
 from auth0.management import Auth0
-from authlib.integrations.flask_oauth2 import current_token
 import json
 from urllib.request import urlopen
-
 from authlib.oauth2.rfc7523 import JWTBearerTokenValidator
 from authlib.jose.rfc7517.jwk import JsonWebKey
-import firebase_admin
-from firebase_admin import credentials
 
 
 bp = Blueprint("auth", __name__)
