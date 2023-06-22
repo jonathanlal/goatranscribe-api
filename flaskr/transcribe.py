@@ -11,6 +11,7 @@ from flaskr.firebase import COST_PER_SECOND, create_custom_token, create_entry_k
 from firebase_admin import db
 from flaskr.azure import download_file_from_azure, get_container_sas, getBlobUrl
 import logging
+import srt
 # import tempfile
 # import nltk
 
@@ -90,30 +91,50 @@ def transcribe_audio(audio_file, initial_prompt=None):
 #     )
     
 #     return response
-
-def create_summary(text_to_summarize):
-    # Split the input text into chunks of maximum allowed length
-    chunk_size = 8000  # Adjust the chunk size as needed
-    text_chunks = [text_to_summarize[i:i+chunk_size] for i in range(0, len(text_to_summarize), chunk_size)]
-    logging.info('Number of chunks: %s', len(text_chunks))
-    summaries = []
-    for chunk in text_chunks:
-        response = generate_summary_chunk(chunk)
-        summary = response['choices'][0]['message']['content']
-        summaries.append(summary)
-    
-    # Combine the summaries into a single summary
-    combined_summary = ' '.join(summaries)
-    if len(text_chunks) > 1:
-        combined_summary = generate_summary_chunk(combined_summary)
-    
-    return combined_summary
-
-
-def generate_summary_chunk(chunk):
+def create_summary_chunk_16k(chunk, max_tokens):
     prompt_with_instruction = [
         {"role": "system", "content": "You are a helpful assistant."},
         {"role": "user", "content": chunk},
+        {"role": "user", "content": "Summarize the keypoints in this chunk of text so that we can later create a summary for all the summaries."},
+    ]
+    
+    response = openai.ChatCompletion.create(
+        model="gpt-3.5-turbo-16k",
+        messages=prompt_with_instruction,
+        temperature=0.3,
+        max_tokens=max_tokens,
+        frequency_penalty=0.0,
+        presence_penalty=0.0,
+    )
+    
+    return response['choices'][0]['message']['content']
+
+
+
+# def create_summary(text_to_summarize):
+#     # Split the input text into chunks of maximum allowed length
+#     chunk_size = 8000  # Adjust the chunk size as needed
+#     text_chunks = [text_to_summarize[i:i+chunk_size] for i in range(0, len(text_to_summarize), chunk_size)]
+#     logging.info('Number of chunks: %s', len(text_chunks))
+#     summaries = []
+#     for chunk in text_chunks:
+#         response = generate_summary_chunk(chunk)
+#         logging.info(response)
+#         summary = response['choices'][0]['message']['content']
+#         summaries.append(summary)
+    
+#     # Combine the summaries into a single summary
+#     combined_summary = ' '.join(summaries)
+#     if len(text_chunks) > 1:
+#         combined_summary = generate_summary_chunk(combined_summary)
+    
+#     return combined_summary
+
+
+def generate_summary(summaries, max_tokens):
+    prompt_with_instruction = [
+        {"role": "system", "content": "You are a helpful assistant."},
+        {"role": "user", "content": summaries},
         {"role": "user", "content": "Summarize this."},
     ]
     
@@ -121,12 +142,12 @@ def generate_summary_chunk(chunk):
         model="gpt-4",
         messages=prompt_with_instruction,
         temperature=0.3,
-        max_tokens=2000,
+        max_tokens=max_tokens,
         frequency_penalty=0.0,
         presence_penalty=0.0,
     )
     
-    return response
+    return response['choices'][0]['message']['content']
 
 
 
@@ -710,6 +731,7 @@ def transcript():
     summary_file_name = f"summary/{entry_key}.txt"
     paragraphed_file_name = f"paragraphed/{entry_key}.txt"
     audio_file_name = f"audio/{entry_key}"
+    encoded_file_name = f"encoded/{entry_key}.mp3"
     translations = transcript_data.get('translations', [])
     # print(translations)
 
@@ -729,10 +751,14 @@ def transcript():
         paragraph_content = "" if not hasParagraphs else download_file_from_azure(paragraphed_file_name).content_as_text()
         # print(transcript_content)
 
+        subs = list(srt.parse(subtitles_content))
+        subs_dicts = [subtitle_to_dict(sub) for sub in subs]
+
         return jsonify({"transcript_content": transcript_content, 
-                        "subtitles_content": subtitles_content,
+                        "subtitles_content": subs_dicts,
                         "transcript_creation_date": transcript_creation_date,
                         "word_count": word_count,
+                        "audioSrc": getBlobUrl(user_id, encoded_file_name),
                         # "transcribe_time_taken": transcribe_time_taken,
                         "hasSummary": hasSummary,
                         "hasParagraphs": hasParagraphs,
