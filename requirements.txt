@@ -24,3 +24,4 @@ azure-ai-translation-document==1.0.0
 ffmpeg-python
 sendgrid
 tiktoken
+pyjwt

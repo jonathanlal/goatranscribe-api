@@ -15,8 +15,6 @@ import srt
 # import tempfile
 # import nltk
 
-
-
 # nltk.download('punkt')
 
 bp = Blueprint("transcribe", __name__)
@@ -588,10 +586,6 @@ def newEntry():
 def uploadComplete():
     entry_key = request.json['entryKey']
     store_file_info(entry_key, "audio")
-    # print('entry_key: ', entry_key)
-    # asset = create_media_service_asset(entry_key)
-    # print('asset: ', asset)
-
 
     authorization_header = request.headers.get('Authorization')
     if authorization_header:
@@ -608,29 +602,22 @@ def uploadComplete():
     logging.info('Sending POST request to %s with headers %s and data %s', url, headers, data)
     
     try:
-        response = requests.post(url, headers=headers, json=data)
+        # response = requests.post(url, headers=headers, json=data)
+        requests.post(url, headers=headers, json=data)
         logging.info('Response received from POST request')
+        return jsonify({"message": "Request sent successfully"}), 202
     except Exception as e:
         logging.error('Error during POST request: %s', str(e))
         return jsonify({"error": "Failed to send request due to an exception: "+str(e)}), 500
 
-    # print(response.text)
-
     # Check the response status
-    if response.status_code == 202:
-        instanceId = json.loads(response.text)['id']
-        logging.info('Request sent successfully. Instance ID: %s', instanceId)
-        return jsonify({"message": "Request sent successfully", "instanceId": instanceId}), 202
-    else:
-        logging.error('Failed to send request. Response code: %s', response.status_code)
-        return jsonify({"error": "Failed to send request"}), response.status_code
-
-
-
-    # response = {
-    #     "message": "Audio data saved, encoding started.",
-    # }
-    # return jsonify(response)
+    # if response.status_code == 202:
+    #     instanceId = json.loads(response.text)['id']
+    #     logging.info('Request sent successfully. Instance ID: %s', instanceId)
+    #     return jsonify({"message": "Request sent successfully", "instanceId": instanceId}), 202
+    # else:
+    #     logging.error('Failed to send request. Response code: %s', response.status_code)
+    #     return jsonify({"error": "Failed to send request"}), response.status_code
 
 @bp.route("/sasToken", methods=["POST"])
 @require_auth(None)

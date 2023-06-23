@@ -355,7 +355,7 @@ def main(input: dict) -> str:
 
     if email_on_finish:
         user_email = getUserEmail(user_sub)
-        send_transcript_complete_email(entry_key, user_email, audio_info["file_name"])
+        send_transcript_complete_email(entry_key, user_email, audio_info["file_name"], user_id)
 
 
     end_time = datetime.datetime.now()
