@@ -131,7 +131,7 @@ def create_summary_chunk_16k(chunk, max_tokens):
 #     return combined_summary
 
 
-def generate_summary(summaries, max_tokens):
+def generate_summary(summaries):
     prompt_with_instruction = [
         {"role": "system", "content": "You are a helpful assistant."},
         {"role": "user", "content": summaries},
@@ -142,7 +142,7 @@ def generate_summary(summaries, max_tokens):
         model="gpt-4",
         messages=prompt_with_instruction,
         temperature=0.3,
-        max_tokens=max_tokens,
+        # max_tokens=max_tokens,
         frequency_penalty=0.0,
         presence_penalty=0.0,
     )

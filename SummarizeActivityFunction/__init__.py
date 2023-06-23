@@ -89,18 +89,18 @@ def main(input: str) -> str:
             summaries_to_summarize = " ".join(summary_chunks)
             update_task_status(user_id, task_id, "creating_summary", "Creating final summary")
 
-            summaries_tokens = gpt3_enc.encode_ordinary(summaries_to_summarize)
-            summaries_token_count = len(summaries_tokens)
-            max_tokens_returned =  safe_max_tokens_limit - summaries_token_count
-            logging.info(f"final max tokens: {max_tokens_returned}")
-            final_summary = generate_summary(summaries_to_summarize, max_tokens_returned)
+            # summaries_tokens = gpt3_enc.encode_ordinary(summaries_to_summarize)
+            # summaries_token_count = len(summaries_tokens)
+            # max_tokens_returned =  safe_max_tokens_limit - summaries_token_count
+            # logging.info(f"final max tokens: {max_tokens_returned}")
+            final_summary = generate_summary(summaries_to_summarize)
         
         else:
             # create summary directly from transcript
             update_task_status(user_id, task_id, "creating_summary", "Creating summary")
-            max_tokens_returned = safe_max_tokens_limit - transcript_token_count
-            logging.info(f"final max tokens: {max_tokens_returned}")
-            final_summary = generate_summary(transcript, max_tokens_returned)
+            # max_tokens_returned = safe_max_tokens_limit - transcript_token_count
+            # logging.info(f"final max tokens: {max_tokens_returned}")
+            final_summary = generate_summary(transcript)
 
         # logging.info(f"token_approx: {token_approx}")
         # summary = create_summary(transcript)
