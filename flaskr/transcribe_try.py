@@ -11,6 +11,7 @@ from nltk.tokenize import word_tokenize
 
 from flaskr.transcribe import createTranscribeResponse, extract_text_from_srt, subtitle_to_dict, transcribe_audio
 
+nltk.download('punkt')
 
 bp = Blueprint("transcribe_try", __name__, url_prefix="/try")
 
